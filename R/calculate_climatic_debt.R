@@ -45,6 +45,15 @@ dat_sti_surf <- dat_spp_surf %>%
   mutate(temp_lag = act_temp - cti, 
          cell = as.factor(cell))
 
+
+# save data
+write_rds(dat_sti_surf, 
+          here("data", 
+               "cleaned_debt_raster.rds"))
+
+# visualise over time -----------------------------------------------------
+
+
 # quick plot
 dat_sti_surf %>%
   mutate(dist_equ = abs(centroid_lat)) %>%
