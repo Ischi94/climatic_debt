@@ -7,13 +7,9 @@ library(tidyverse)
 # load data ---------------------------------------------------------------
 
 # cleaned foraminifera occurrence time series along with temperature
-dat_spp <- readRDS(here("data", 
+dat_spp <- read_rds(here("data", 
                         "spp-and-sampling-data_list-by-depth.rds"))
 
-# average global temperature in each bin
-dat_mean_temp <- read_csv(here("data", 
-                               "global-MAT_10-deg-grid_8ka.csv")) %>% 
-  select(bin, temp_ym_0m)
 
 
 
