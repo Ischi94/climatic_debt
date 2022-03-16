@@ -1,7 +1,6 @@
 library(raster)
 library(here)
 library(tidyverse)
-library(patchwork)
 
 
 
@@ -32,7 +31,7 @@ rEmpt <- raster(ncols=288, nrows=144, xmn=-180, xmx=180, ymn=-90, ymx=90)
 dat_spp_surf[,c('centroid_long', 'centroid_lat')] <- xyFromCell(rEmpt, dat_spp_surf$cell)
 
 # calculate climate debt per cell and per bin
-dat_sti_surf <- dat_spp_surf %>% 
+dat_debt <- dat_spp_surf %>% 
   group_by(species) %>%
   summarise(sti = mean(temp_ym)) %>% 
   full_join(dat_spp_surf) %>% 
@@ -47,15 +46,16 @@ dat_sti_surf <- dat_spp_surf %>%
 
 
 # save data
-write_rds(dat_sti_surf, 
+write_rds(dat_debt, 
           here("data", 
                "cleaned_debt_raster.rds"))
+
 
 # visualise over time -----------------------------------------------------
 
 
 # quick plot
-dat_sti_surf %>%
+dat_debt %>%
   mutate(dist_equ = abs(centroid_lat)) %>%
   ggplot(aes(bin, temp_lag)) +
   geom_line(aes(group = cell, colour = dist_equ),
