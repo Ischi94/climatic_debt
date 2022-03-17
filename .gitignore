@@ -5,3 +5,6 @@
 
 # all unzipped files
 *.zip
+
+# gcm data
+/data/gcm_annual_mean/
