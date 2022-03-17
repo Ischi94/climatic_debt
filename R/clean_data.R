@@ -136,8 +136,8 @@ dat_clean_pres_nrew <- dat_clean_pres_nrew %>%
   filter(!age.model %in% c("Berggren1977","Ericson1968","GTSBlow1969","Raffi2006"))
 
 # all remaining records have high enough precision for binning
-brk <- seq(0, 800-tRes, by=tRes)
-bins <- data.frame(t=brk, b=brk+tRes, mid=brk+tRes/2)
+brk <- seq(0, 800 - 8, by = 8)
+bins <- data.frame(t = brk, b = brk + 8, mid = brk + 8/2)
 
 # age 'zero' = 1950, and some observations are more recent (i.e. negative age)
 bins$t[1] <- -0.1
@@ -171,7 +171,16 @@ dat_clean_depth <- dat_clean_binned %>%
 
 
 
+# clean and safe ----------------------------------------------------------
 
-  
+# remove species with less than 10 occurrences
+dat_final <- dat_clean_depth %>% 
+  add_count(species) %>% 
+  filter(n < 10) %>% 
+  select(-n)
 
-
+# save final data set
+dat_final %>% 
+  write_rds(here("data", 
+                 "cleaned_spp_data.rds"), 
+            compress = "gz")
