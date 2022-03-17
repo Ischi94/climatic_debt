@@ -175,8 +175,8 @@ dat_clean_depth <- dat_clean_binned %>%
 
 # remove species with less than 10 occurrences
 dat_final <- dat_clean_depth %>% 
-  add_count(species) %>% 
-  filter(n < 10) %>% 
+  add_count(species) %>%
+  filter(n > 10) %>% 
   select(-n)
 
 # save final data set
