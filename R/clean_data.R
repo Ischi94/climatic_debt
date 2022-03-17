@@ -39,17 +39,20 @@ dat_clean <- dat_raw %>%
                            "RC9C98", "RC9C99")) %>% 
   select(-coreID)
   
-# average coordinates for cores with same entries but with a 0.1 degree
-  # location difference
+# average coordinates for cores with same entries but with a small
+  # location difference (measurment error)
 dat_clean <- dat_clean %>%
-  group_by(core_uniq) %>%
-  mutate(pal.long = if_else(core_uniq == "NA87_22",
+  select(core_uniq, pal.lat, pal.long) %>% 
+  distinct(core_uniq, pal.lat, pal.long) %>% 
+  count(core_uniq, name = "dupl_core") %>% 
+  left_join(dat_clean) %>% 
+  mutate(pal.long = if_else(dupl_core > 1,
                             mean(pal.long),
                             pal.long),
-         pal.lat = if_else(core_uniq == "NA87_22",
-                            mean(pal.lat),
-                           pal.lat)) %>%
-  ungroup()
+         pal.lat = if_else(dupl_core > 1,
+                           mean(pal.lat),
+                           pal.lat))
+    
   
 
 
@@ -77,7 +80,13 @@ dat_clean_pres <- dat_clean %>%
                                "p?")) %>% 
   # modify the abundance where original abundance indicates presence, but
   # entered abundance is 0
-  mutate(abundance = if_else(!is.na(orig.abundance) & abundance == 0, 
+  mutate(abundance = if_else(orig.abundance %in% c("r","P", "R", "F", 
+                                                   "A", "T", "S", "C", 
+                                                   "D", "X", "+", "VR",
+                                                   "C/A", "x", "T/R", ">0",
+                                                   "(F)", "B", "(R)", "F/C", 
+                                                   "R/F", "(X)")
+                             & abundance == 0, 
                              1, 
                              abundance)) %>% 
   # remove real absences
@@ -119,27 +128,49 @@ dat_clean_pres_nrew <- dat_ranges %>%
 
 
 
+# bin and summarize -------------------------------------------------------
+
+# remove records with very imprecise age estimates
+dat_clean_pres_nrew <- dat_clean_pres_nrew %>% 
+  filter(!(rng.age > 8/1000 & !is.na(rng.age))) %>% 
+  filter(!age.model %in% c("Berggren1977","Ericson1968","GTSBlow1969","Raffi2006"))
+
+# all remaining records have high enough precision for binning
+brk <- seq(0, 800-tRes, by=tRes)
+bins <- data.frame(t=brk, b=brk+tRes, mid=brk+tRes/2)
+
+# age 'zero' = 1950, and some observations are more recent (i.e. negative age)
+bins$t[1] <- -0.1
+
+dat_clean_binned <- dat_clean_pres_nrew %>%
+  mutate(bin = map(age, ~ bins$t < .x & bins$b >= .x),
+         bin = map_dbl(bin, ~ bins$mid[.x]))
+
+# calculate the relative abundance of each species within each core per bin
+dat_clean_binned <- dat_clean_binned %>%
+  group_by(bin, core_uniq, species) %>% 
+  summarise(av_rel_ab = mean(rel.abun)) %>% 
+  # standardize to relative abundance within bin within core
+  mutate(rel_abund = av_rel_ab/sum(av_rel_ab)) %>% 
+  ungroup() %>% 
+  select(-av_rel_ab) %>% 
+  left_join(dat_clean_binned %>% 
+              distinct(core_uniq, pal.lat, pal.long))
+
 
 # Add modern depth ranges to data -----------------------------------------
 
-dat_clean_pres_nrew %>% 
+dat_clean_depth <- dat_clean_binned %>% 
   mutate(Species = str_replace(species, 
                                " ",
                                ".")) %>% 
   left_join(dat_depth, by = "Species") %>% 
+  select(-Species) %>% 
   # remove duplicates
-  distinct(.keep_all = TRUE) %>% 
-  # clean data
-  select()
+  distinct(.keep_all = TRUE)
 
-# cut down file size
-irrel <- c('orig.species','abundance','orig.abundance','abun.units',
-           'age.st','age.en','AM.type','rel.abun','round.age',
-           'site','hole','core','section','sample.top','sample.type',
-           'total.IDd','preservation','processing','Comments',
-           'Average.Area..µm2.','log.area','Approximate.diameter')
-cols2toss <- colnames(occ) %in% c(traits, irrel)
-occ <- occ[,!cols2toss]
+
+
 
   
 
