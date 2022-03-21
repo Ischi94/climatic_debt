@@ -125,20 +125,6 @@ dat_final <- dat_temp %>%
   filter(n_occ >= 10)
 
 
-  
-dat_final <- dat_final %>% 
-  filter(bin <= 700) %>% 
-  # retain only those cores with at least 4 successive steps 
-  group_by(core_uniq) %>% 
-  mutate(n_occ = n()) %>% 
-  ungroup() %>% 
-  filter(n_occ >= 4) %>% 
-  # retain only those species that occur at least 10 times
-  group_by(species) %>% 
-  mutate(n_occ = n()) %>% 
-  ungroup() %>% 
-  filter(n_occ >= 10) 
-
 # save as rds
 dat_final %>% 
   write_rds(here("data", "spp_by_depth.rds"), 
