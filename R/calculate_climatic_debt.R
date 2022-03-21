@@ -106,6 +106,23 @@ write_rds(dat_debt,
                "cleaned_debt_wapls.rds"))
 
 
+# visualise over time -----------------------------------------------------
+
+
+# quick plot
+dat_debt %>%
+  mutate(dist_equ = abs(pal.lat)) %>%
+  ggplot(aes(bin, climatic_debt)) +
+  geom_line(aes(group = core_uniq, colour = dist_equ),
+            alpha = 0.4) +
+  geom_smooth(colour = "coral3") +
+  scale_x_reverse() +
+  theme_minimal()
+
+
+
+
+
 # based on cti ------------------------------------------------------------
 
 
@@ -135,18 +152,7 @@ write_rds(dat_debt,
                "cleaned_debt_raster.rds"))
 
 
-# visualise over time -----------------------------------------------------
 
-
-# quick plot
-dat_debt %>%
-  mutate(dist_equ = abs(centroid_lat)) %>%
-  ggplot(aes(bin, temp_lag)) +
-  geom_line(aes(group = cell, colour = dist_equ),
-            alpha = 0.4) +
-  geom_smooth(colour = "coral3") +
-  scale_x_reverse() +
-  theme_minimal()
 
 
 
