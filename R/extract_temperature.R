@@ -100,5 +100,18 @@ dat_temp <- list.files(here("data", "gcm_annual_mean"), # get all downloaded tif
                               temp_depth)) %>%  
   select(core_uniq, bin, temp_surface, temp_depth)
     
-    
-    
+
+
+# merge and save ----------------------------------------------------------
+
+
+# combine with species data
+dat_final <- dat_temp %>% 
+  full_join(dat_spp_depth, by = c("bin", "core_uniq")) %>% 
+  drop_na(temp_surface, temp_depth) %>% 
+  select(-c(DepthHabitat:ald,N:ref))
+
+# save as rds
+dat_final %>% 
+  write_rds(here("data", "spp_by_depth.rds"), 
+            compress = "gz")
