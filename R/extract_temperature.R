@@ -102,16 +102,46 @@ dat_temp <- list.files(here("data", "gcm_annual_mean"), # get all downloaded tif
     
 
 
-# merge and save ----------------------------------------------------------
+# clean and save ----------------------------------------------------------
 
 
 # combine with species data
 dat_final <- dat_temp %>% 
   full_join(dat_spp_depth, by = c("bin", "core_uniq")) %>% 
+  # remove where temperature is unknown
   drop_na(temp_surface, temp_depth) %>% 
-  select(-c(DepthHabitat:ald,N:ref))
+  select(-c(DepthHabitat:ald,N:ref)) %>% 
+  # restrict to the last 700 ka, to trim edge effects of range-through cores
+  filter(bin <= 700) %>% 
+  # retain only those cores with at least 4 successive steps 
+  group_by(core_uniq) %>% 
+  mutate(n_occ = n()) %>% 
+  ungroup() %>% 
+  filter(n_occ >= 4) %>% 
+  # retain only those species that occur at least 10 times
+  group_by(species) %>% 
+  mutate(n_occ = n()) %>% 
+  ungroup() %>% 
+  filter(n_occ >= 10)
+
+
+  
+dat_final <- dat_final %>% 
+  filter(bin <= 700) %>% 
+  # retain only those cores with at least 4 successive steps 
+  group_by(core_uniq) %>% 
+  mutate(n_occ = n()) %>% 
+  ungroup() %>% 
+  filter(n_occ >= 4) %>% 
+  # retain only those species that occur at least 10 times
+  group_by(species) %>% 
+  mutate(n_occ = n()) %>% 
+  ungroup() %>% 
+  filter(n_occ >= 10) 
 
 # save as rds
 dat_final %>% 
   write_rds(here("data", "spp_by_depth.rds"), 
             compress = "gz")
+
+
