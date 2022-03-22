@@ -31,11 +31,11 @@ plot2 <- dat_debt %>%
   summarise(av_temp = mean(temp_surface)) %>% 
   pivot_wider(names_from = zone, values_from = av_temp) %>% 
   ungroup() %>% 
-  mutate(across(high:mid, ~ if_else(.x > lead(.x), 
+  mutate(across(High:Mid, ~ if_else(.x > lead(.x), 
                                     "warming", 
                                     "cooling"))) %>% 
   full_join(dat_debt %>% select(-zone)) %>% 
-  pivot_longer(cols = high:mid, 
+  pivot_longer(cols = High:Mid, 
                names_to = "zone", 
                values_to = "short_term") %>% 
   drop_na(short_term) %>% 

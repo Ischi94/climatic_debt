@@ -210,15 +210,19 @@ dat_pred_glacial %>%
 
 
 
-dat_pred %>% 
-  as_tibble() %>% 
-  mutate(abs_lat = abs(pal.lat), 
-         zone = case_when(
-           abs_lat >= 60 ~ "pole",
-           between(abs_lat, 30, 60) ~ "mid", 
-           between(abs_lat, 0, 30) ~ "equator"
-         )) %>% 
-  ggplot(aes(zone, pred_debt)) +
-  geom_boxplot()
+plot4 <- dat_debt %>%
+  group_by(bin) %>% 
+  summarise(mean_cl_boot(climatic_debt)) %>% 
+  select(bin, mean = y, lower = ymin, upper = ymax)  %>% 
+  ggplot(aes(bin, mean)) +
+  geom_hline(yintercept = 0) +
+  geom_line(colour = "coral", lwd = 1.3) +
+  labs(x = "Age [ka]", 
+       y = "Climatic Debt [°C]") +
+  scale_x_reverse() +
+  theme_minimal() +
+  theme(panel.grid = element_blank())
   
 
+plot4/plot_temp +
+  plot_layout(heights = c(2, 1))
