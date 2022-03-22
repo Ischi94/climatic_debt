@@ -1,13 +1,17 @@
 library(here)
 library(tidyverse)
 library(patchwork)
-library(mgcv)
-
 
 # load data ---------------------------------------------------------------
 
 dat_debt <- read_rds(here("data",
-                          "cleaned_debt_wapls.rds"))
+                          "cleaned_debt_wapls.rds")) %>% 
+  # add latitudinal zones
+  mutate(abs_lat = abs(pal.lat), 
+         zone = case_when(
+           abs_lat >= 60 ~ "High",
+           between(abs_lat, 30, 60) ~ "Mid", 
+           between(abs_lat, 0, 30) ~ "Low"))
 
 # average global temperature in each bin
 dat_mean_temp <- read_csv(here("data", 
@@ -19,81 +23,30 @@ dat_mean_temp <- read_csv(here("data",
 world <- map_data("world")
 
 
-# fit model ---------------------------------------------------------------
 
-# spatio-temporal model
-model_surf <- gam(
-  climatic_debt ~ s(pal.long, pal.lat) + s(bin) +
-    ti(pal.long, pal.lat, bin, d = c(2, 1)), 
-  data = dat_debt,
-  family = gaussian(),
-  method = "REML", 
-  control = list(nthreads = 8) # use 8 physical cores
-)
+# climatic debt through time ----------------------------------------------
 
-
-
-# model predictions -------------------------------------------------------
-
-# create equally sampled grid over space and time
-dat_pred <-  expand.grid(
-  pal.lat = seq(-80,  80, length = 10),
-  pal.long = seq(-180, 180, length = 10),
-  bin = seq(700, 4, by = -8)) 
-
-# add predictions to actual data
-dat_pred <- dat_pred %>% 
-  mutate(pred_debt = predict(model_surf,
-                             dat_pred, type = "response")) %>% 
-  as_tibble()
-
-# split into background and unusual temperatures based on quantiles
-dat_temp_quant <- dat_mean_temp %>% 
-  summarize(temp_quant = quantile(temp_ym_0m)) %>% 
-  pull(temp_quant) 
-
-dat_pred <- dat_mean_temp %>% 
-  mutate(temp_type = case_when(
-    temp_ym_0m <= dat_temp_quant[2] ~ "cool", 
-    between(temp_ym_0m, 
-            dat_temp_quant[2], 
-            dat_temp_quant[4]) ~ "background", 
-    temp_ym_0m >= dat_temp_quant[4] ~ "warm")) %>% 
-  select(-temp_ym_0m) %>% 
-  right_join(dat_pred)
-  
-
-
-
-
-# visualisation -----------------------------------------------------------
-
-
-# separate into low, mid, and high latitude
-dat_pred_lat <- dat_pred %>% 
-  as_tibble() %>% 
-  mutate(abs_lat = abs(pal.lat), 
-         zone = case_when(
-           abs_lat >= 60 ~ "high",
-           between(abs_lat, 30, 60) ~ "mid", 
-           between(abs_lat, 0, 30) ~ "low"))  
-  
-# overall model trend
-plot_ov <- dat_pred_lat %>% 
+dat_debt_time <- dat_debt %>%
   group_by(bin) %>% 
-  summarise(mean_cl_boot(pred_debt)) %>%
-  select(bin, mean = y, lower = ymin, upper = ymax)  %>% 
-  ggplot(aes(bin, mean, 
-             ymin = lower, ymax = upper)) +
+  summarise(mean_cl_boot(climatic_debt)) %>% 
+  select(bin, climatic_debt = y)
+  
+# visualise
+plot_debt_time <- dat_debt_time %>% 
+  ggplot(aes(bin, climatic_debt)) +
   geom_hline(yintercept = 0) +
-  geom_ribbon(alpha = 0.3) +
   geom_line(colour = "coral", lwd = 1.3) +
   labs(x = "Age [ka]", 
-       y = "Climatic Debt [°C]") +
+       y = "Average Global\nClimatic Debt [°C]") +
   scale_x_reverse() +
   theme_minimal() +
   theme(panel.grid = element_blank())
 
+
+
+
+
+# global temperature -----------------------------------------------------------
 
 
 # global temperature through time
@@ -108,101 +61,101 @@ plot_temp <- dat_mean_temp %>%
   theme(panel.grid = element_blank())
 
 
-plot_ov/plot_temp +
-  plot_layout(heights = c(3, 1))
 
 
-dat_pred_zone <- dat_pred %>% 
-  as_tibble() %>% 
-  mutate(abs_lat = abs(pal.lat), 
-         zone = case_when(
-           abs_lat >= 60 ~ "pole",
-           between(abs_lat, 30, 60) ~ "mid", 
-           between(abs_lat, 0, 30) ~ "equator"
-         )) 
+# climatic debt as a function of temperature ------------------------------
 
-dat_pred_zone %>% 
-  ggplot(aes(bin, pred_debt, 
-             group = interaction(pal.lat,
-                                 pal.long),
-             colour = zone)) +
-  geom_hline(yintercept = 0) +
-  geom_line(alpha = 0.3) +
-  scale_x_reverse() +
-  facet_wrap(~ zone) +
-  theme_minimal() +
-  theme(legend.position = "none", 
-        panel.grid = element_blank())
-
-dat_pred_zone %>% 
+# calculate short-term changes
+dat_debt_trends <- dat_debt %>% 
+  # summarize per latitudinal zone
   group_by(bin, zone) %>% 
-  summarise(mean_cl_boot(pred_debt)) %>% 
-  ggplot(aes(bin, y, 
-             colour = zone)) +
-  geom_hline(yintercept = 0) +
-  geom_ribbon(aes(ymin = ymin,
-                  ymax = ymax, 
-                  colour = NULL, 
-                  fill = zone), 
-              alpha = 0.4) +
-  geom_line(alpha = 0.8) +
-  scale_x_reverse() +
-  theme_minimal() +
-  theme(legend.position = "none", 
-        panel.grid = element_blank())
-
-dat_pred_zone %>% 
-  group_by(zone) %>% 
-  summarise(sd(pred_debt))
-
-
-# background versus maxima
-dat_pred  %>% 
-  # group_by(temp_type) %>% 
-  summarise(mean_cl_boot(pred_debt))
-
-
-
-dat_pred_glacial %>% 
-  select(-bin) %>% 
-  group_by(glacial) %>% 
-  summarise(mean_cl_boot(pred_debt))
+  summarise(av_temp = mean(temp_surface)) %>% 
+  pivot_wider(names_from = zone, values_from = av_temp) %>% 
+  ungroup() %>% 
+  # calculate lags
+  mutate(High_lag = lead(High, default = mean(High)), 
+         Low_lag = lead(Low, default = mean(Low)), 
+         Mid_lag = lead(Mid, default = mean(Mid))) %>% 
+  # calculate short-term changes
+  mutate(High_st = (High - High_lag)/8, 
+         Low_st = (Low - Low_lag)/8, 
+         Mid_st = (Mid - Mid_lag)/8) %>% 
+  # calculate first long-term trend
+  mutate(High_lt1 = (High_lag - lead(High_lag, default = mean(High_lag)))/8, 
+         Low_lt1 = (Low_lag - lead(Low_lag, default = mean(Low_lag)))/8, 
+         Mid_lt1 = (Mid_lag - lead(Mid_lag, default = mean(Mid_lag)))/8) %>% 
+  # calculate second long-term trend
+  mutate(High_lt2 = (High_lag - lead(High_lag, default = mean(High_lag), n = 2))/8, 
+         Low_lt2 = (Low_lag - lead(Low_lag, default = mean(Low_lag), n = 2))/8, 
+         Mid_lt2 = (Mid_lag - lead(Mid_lag, default = mean(Mid_lag), n = 2))/8) %>% 
+  # bring into right format
+  select(-c(High:Mid_lag)) %>% 
+  pivot_longer(-bin,
+               names_to = c("zone", ".value"),
+               names_pattern = "(.+)_(.+)") %>% 
+  # merge back with climatic debt data
+  full_join(dat_debt %>% 
+              select(-c(temp_surface:cti, abs_lat)))
 
 
 
+# simple linear models
+
+# use leave-one-out cross-validation 
+lm_boot <- function(formula, 
+                    data = dat_debt_trends) {
+  
+  dat_model <- data %>% 
+    
+  
+  
+}
+
+# short-term only
+nr_rows <- dat_debt_trends %>% 
+  drop_na(st) %>% 
+  nrow()
+
+# preallocate vector
+dat_aic <- vector(mode = "double", 
+                  length = nr_rows)
+
+for (i in 1:nr_rows) {
+  
+  dat_aic[i] <- dat_debt_trends %>% 
+    drop_na(st) %>% 
+    add_column(nr = 1:nr_rows) %>% 
+    filter(nr != i) %>% 
+    lm(climatic_debt ~ st, data = .) %>% 
+    AIC()
+  
+}
 
 
+mod_st <- lm(climatic_debt ~ st, data = dat_debt_trends)
+
+# short-term interacting with 8ka long-term trend
+mod_lt1 <- lm(climatic_debt ~ st:lt1, data = dat_debt_trends)
+
+# short-term interacting with 16ka long-term trend
+mod_lt2 <- lm(climatic_debt ~ st:lt2, data = dat_debt_trends)
 
 
+# create comparison table
+tibble(model = c("null_model", 
+                 "short_term", 
+                 "short_term:long_term8", 
+                 "short_term:long_term16"), 
+       aic = map_dbl(list(mod_null, mod_st,
+                          mod_lt1, mod_lt2), 
+                     AIC), 
+       bic = map_dbl(list(mod_null, mod_st,
+                          mod_lt1, mod_lt2), 
+                     BIC)) %>% 
+  mutate(delta_aic = aic - .[[4, 2]], 
+         delta_bic = bic - .[[4, 3]])
 
 
-
-
-
-
-
-
-
-dat_pred_glacial %>% 
-  select(-bin) %>% 
-  pivot_wider(values_from = pred_debt, 
-              names_from = glacial, 
-              values_fn = list) %>% 
-  mutate(debt_diff = map2(min, max, ~ .x - .y)) %>% 
-  select(-c(min, max)) %>% 
-  unnest(debt_diff) %>% 
-  ggplot() +
-  scale_x_continuous(name = '', limits = c(-180, 180), expand = c(0,0)) +
-  scale_y_continuous(name = '', limits = c(-90, 90),   expand = c(0,0)) +
-  geom_raster(aes(x = pal.long, y = pal.lat, fill = debt_diff), 
-              na.rm = TRUE) +
-  geom_map(aes(map_id = region), 
-           data = world, map = world, fill = "grey40") + 
-  scale_fill_gradient2(low = "darkblue", mid = "white", 
-                       high = "darkred") +
-  coord_quickmap() +
-  theme_minimal() +
-  theme(panel.grid = element_blank())
 
 
 
