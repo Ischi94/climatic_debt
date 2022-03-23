@@ -127,29 +127,29 @@ dat_debt %>%
 
 
 
-# convert cell numbers to coordinates
-rEmpt <- raster(ncols=288, nrows=144, xmn=-180, xmx=180, ymn=-90, ymx=90)
-dat_spp_surf[,c('centroid_long', 'centroid_lat')] <- xyFromCell(rEmpt, dat_spp_surf$cell)
-
-# calculate climate debt per cell and per bin
-dat_debt <- dat_spp_surf %>% 
-  group_by(species) %>%
-  summarise(sti = mean(temp_ym)) %>% 
-  full_join(dat_spp_surf) %>% 
-  arrange(cell) %>% 
-  group_by(bin, cell, centroid_long, centroid_lat) %>% 
-  summarise(cti = mean(sti), 
-            act_temp = mean(temp_ym)) %>% 
-  ungroup() %>% 
-  select(cell, centroid_long, centroid_lat, bin, act_temp, cti) %>% 
-  mutate(temp_lag = act_temp - cti, 
-         cell = as.factor(cell))
-
-
-# save data
-write_rds(dat_debt, 
-          here("data", 
-               "cleaned_debt_raster.rds"))
+# # convert cell numbers to coordinates
+# rEmpt <- raster(ncols=288, nrows=144, xmn=-180, xmx=180, ymn=-90, ymx=90)
+# dat_spp_surf[,c('centroid_long', 'centroid_lat')] <- xyFromCell(rEmpt, dat_spp_surf$cell)
+# 
+# # calculate climate debt per cell and per bin
+# dat_debt <- dat_spp_surf %>% 
+#   group_by(species) %>%
+#   summarise(sti = mean(temp_ym)) %>% 
+#   full_join(dat_spp_surf) %>% 
+#   arrange(cell) %>% 
+#   group_by(bin, cell, centroid_long, centroid_lat) %>% 
+#   summarise(cti = mean(sti), 
+#             act_temp = mean(temp_ym)) %>% 
+#   ungroup() %>% 
+#   select(cell, centroid_long, centroid_lat, bin, act_temp, cti) %>% 
+#   mutate(temp_lag = act_temp - cti, 
+#          cell = as.factor(cell))
+# 
+# 
+# # save data
+# write_rds(dat_debt, 
+#           here("data", 
+#                "cleaned_debt_raster.rds"))
 
 
 
