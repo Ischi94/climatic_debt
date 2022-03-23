@@ -104,46 +104,53 @@ dat_debt_trends <- dat_debt %>%
 # simple linear models
 
 # use leave-one-out cross-validation 
-lm_boot <- function(formula, data = dat_debt_trends) {
+aic_loo <- function(lm_frml,
+                    data = dat_debt_trends,
+                    parameters = "climatic_debt") {
   
-  dat_model <- data 
+  # get observations
+  nr_rows <- data %>% 
+    drop_na(all_of(parameters)) %>% 
+    nrow() 
+  
+  # preallocate vector
+  dat_aic <- vector(mode = "double", 
+                    length = nr_rows)
+  
+  for (i in 1:nr_rows) {
+    
+    dat_aic[i] <- data %>% 
+      drop_na(all_of(parameters)) %>% 
+      add_column(nr = 1:nr_rows) %>% 
+      filter(nr != i) %>% 
+      lm(formula = lm_frml, data = .) %>% 
+      AIC()
     }
-
-# short-term only
-nr_rows <- dat_debt_trends %>% 
-  drop_na(st) %>% 
-  nrow()
-
-# preallocate vector
-dat_aic <- vector(mode = "double", 
-                  length = nr_rows)
-
-for (i in 1:nr_rows) {
   
-  dat_aic[i] <- dat_debt_trends %>% 
-    drop_na(st) %>% 
-    add_column(nr = 1:nr_rows) %>% 
-    filter(nr != i) %>% 
-    lm(climatic_debt ~ st, data = .) %>% 
-    AIC()
+  return(dat_aic)
   
-}
+  }
+
 
 
 # null model with intercept only
-mod_null <- lm(climatic_debt ~ 1, data = dat_debt_trends)
+mod_null <- aic_loo(lm_frml = formula(climatic_debt ~ 1))
 
 # short-term only
-mod_st <- lm(climatic_debt ~ st, data = dat_debt_trends)
+mod_st <- aic_loo(lm_frml = formula(climatic_debt ~ st),
+                  parameters = "st")
 
 # short-term interacting with 8ka long-term trend
-mod_lt1 <- lm(climatic_debt ~ st:lt1, data = dat_debt_trends)
+mod_lt1 <- aic_loo(lm_frml = formula(climatic_debt ~ st:lt1),
+                   parameters = c("st", "lt1"))
 
 # short-term interacting with 16ka long-term trend
-mod_lt2 <- lm(climatic_debt ~ st:lt2, data = dat_debt_trends)
+mod_lt2 <- aic_loo(lm_frml = formula(climatic_debt ~ st:lt2),
+                   parameters = c("st", "lt2"))
 
 # short-term interacting with 24ka long-term trend
-mod_lt3 <- lm(climatic_debt ~ st:lt3, data = dat_debt_trends)
+mod_lt3 <- aic_loo(lm_frml = formula(climatic_debt ~ st:lt3),
+                   parameters = c("st", "lt3"))
 
 
 # put in a list to call iteratively 
@@ -151,16 +158,24 @@ mod_list <- list(mod_null, mod_st,
                  mod_lt1, mod_lt2,
                  mod_lt3)
 
+# summarise leave-one-out AIC
+
 # create comparison table
 dat_mod_comp <- tibble(model = c("Null Model",
                                  "Short Term",
-                                 "Short Term:Long Term 8ka",
-                                 "Short Term:Long Term 16ka",
-                                 "Short Term:Long Term 24ka"),
-                       aic = map_dbl(mod_list, AIC),
-                       bic = map_dbl(mod_list, BIC)) %>%
+                                 "Short Term + 8ka",
+                                 "Short Term + 16ka",
+                                 "Short Term + 24ka"),
+                       aic = map_dbl(mod_list, mean),
+                       aic_sd = map_dbl(mod_list, sd)) %>%
+  # include uncertainty based on loo
+  mutate(lwr = aic - aic_sd, 
+         upr = aic + aic_sd) %>% 
+  # calculate delta_aic
   mutate(delta_aic = aic - .[[4, 2]],
-         delta_bic = bic - .[[4, 3]])
+         lwr = lwr - .[[4, 2]], 
+         upr = upr - .[[4, 2]], 
+         radius = (upr - lwr)/2)
 
 
 
@@ -171,9 +186,13 @@ dat_mod_comp %>%
   ggplot(aes(delta_aic, model)) +
   geom_segment(aes(x = 0, xend = delta_aic, 
                    yend = model)) +
-  geom_point() +
+  geom_point(aes(size = radius), 
+             colour = "coral") +
+  geom_point(size = 0.7) +
   labs(y = NULL, x = expression(paste(Delta, "  AIC"))) +
-  theme_minimal()
+  theme_minimal() +
+  theme(legend.position = "none", 
+        panel.grid = element_blank())
 
 
 
