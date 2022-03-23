@@ -44,8 +44,6 @@ plot_debt_time <- dat_debt_time %>%
 
 
 
-
-
 # global temperature -----------------------------------------------------------
 
 
@@ -88,6 +86,10 @@ dat_debt_trends <- dat_debt %>%
   mutate(High_lt2 = (High_lag - lead(High_lag, default = mean(High_lag), n = 2))/8, 
          Low_lt2 = (Low_lag - lead(Low_lag, default = mean(Low_lag), n = 2))/8, 
          Mid_lt2 = (Mid_lag - lead(Mid_lag, default = mean(Mid_lag), n = 2))/8) %>% 
+  # calculate third long-term trend
+  mutate(High_lt3 = (High_lag - lead(High_lag, default = mean(High_lag), n = 3))/8, 
+         Low_lt3 = (Low_lag - lead(Low_lag, default = mean(Low_lag), n = 3))/8, 
+         Mid_lt3 = (Mid_lag - lead(Mid_lag, default = mean(Mid_lag), n = 3))/8) %>% 
   # bring into right format
   select(-c(High:Mid_lag)) %>% 
   pivot_longer(-bin,
@@ -102,14 +104,10 @@ dat_debt_trends <- dat_debt %>%
 # simple linear models
 
 # use leave-one-out cross-validation 
-lm_boot <- function(formula, 
-                    data = dat_debt_trends) {
+lm_boot <- function(formula, data = dat_debt_trends) {
   
-  dat_model <- data %>% 
-    
-  
-  
-}
+  dat_model <- data 
+    }
 
 # short-term only
 nr_rows <- dat_debt_trends %>% 
@@ -132,6 +130,10 @@ for (i in 1:nr_rows) {
 }
 
 
+# null model with intercept only
+mod_null <- lm(climatic_debt ~ 1, data = dat_debt_trends)
+
+# short-term only
 mod_st <- lm(climatic_debt ~ st, data = dat_debt_trends)
 
 # short-term interacting with 8ka long-term trend
@@ -140,42 +142,41 @@ mod_lt1 <- lm(climatic_debt ~ st:lt1, data = dat_debt_trends)
 # short-term interacting with 16ka long-term trend
 mod_lt2 <- lm(climatic_debt ~ st:lt2, data = dat_debt_trends)
 
+# short-term interacting with 24ka long-term trend
+mod_lt3 <- lm(climatic_debt ~ st:lt3, data = dat_debt_trends)
+
+
+# put in a list to call iteratively 
+mod_list <- list(mod_null, mod_st,
+                 mod_lt1, mod_lt2,
+                 mod_lt3)
 
 # create comparison table
-tibble(model = c("null_model", 
-                 "short_term", 
-                 "short_term:long_term8", 
-                 "short_term:long_term16"), 
-       aic = map_dbl(list(mod_null, mod_st,
-                          mod_lt1, mod_lt2), 
-                     AIC), 
-       bic = map_dbl(list(mod_null, mod_st,
-                          mod_lt1, mod_lt2), 
-                     BIC)) %>% 
-  mutate(delta_aic = aic - .[[4, 2]], 
+dat_mod_comp <- tibble(model = c("Null Model",
+                                 "Short Term",
+                                 "Short Term:Long Term 8ka",
+                                 "Short Term:Long Term 16ka",
+                                 "Short Term:Long Term 24ka"),
+                       aic = map_dbl(mod_list, AIC),
+                       bic = map_dbl(mod_list, BIC)) %>%
+  mutate(delta_aic = aic - .[[4, 2]],
          delta_bic = bic - .[[4, 3]])
 
 
 
-
-
-
-
-
-
-plot4 <- dat_debt %>%
-  group_by(bin) %>% 
-  summarise(mean_cl_boot(climatic_debt)) %>% 
-  select(bin, mean = y, lower = ymin, upper = ymax)  %>% 
-  ggplot(aes(bin, mean)) +
-  geom_hline(yintercept = 0) +
-  geom_line(colour = "coral", lwd = 1.3) +
-  labs(x = "Age [ka]", 
-       y = "Climatic Debt [°C]") +
-  scale_x_reverse() +
-  theme_minimal() +
-  theme(panel.grid = element_blank())
   
+# visualize model comparison
+dat_mod_comp %>% 
+  mutate(model = fct_reorder(model, c(5:1))) %>% 
+  ggplot(aes(delta_aic, model)) +
+  geom_segment(aes(x = 0, xend = delta_aic, 
+                   yend = model)) +
+  geom_point() +
+  labs(y = NULL, x = expression(paste(Delta, "  AIC"))) +
+  theme_minimal()
 
-plot4/plot_temp +
+
+
+
+plot_debt_time/plot_temp +
   plot_layout(heights = c(2, 1))
