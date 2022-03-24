@@ -134,6 +134,7 @@ plot_regr <- dat_debt %>%
   scale_fill_manual(values = alpha(c(colour_lavender,
                                 colour_green,
                                 colour_brown), 0.2)) +
+  scale_x_continuous(breaks = c(-10, 0, 10)) +
   labs(y = "Temperature\nAnomaly [°C]", 
        x = "Climatic Debt [°C]") +
   theme(legend.position = "none")
@@ -170,18 +171,19 @@ plot_velocity <- dat_velocity_debt %>%
   geom_text(aes(label = range_debt, x = new_x),
             colour = "white",
             position = position_dodge(width = 1), 
-            size = 8/.pt, 
+            size = 11/.pt, 
             fontface = "bold") +
   geom_text(aes(label = range_debt, x = new_x),
             colour = "grey20",
             position = position_dodge(width = 1), 
-            size = 7/.pt) +
+            size = 10/.pt) +
   labs(y = NULL, 
        x = "Poleward Range Velocity [km/8ka]") +
   scale_fill_manual(values = c(colour_lavender,
                                 colour_green,
                                 colour_brown)) +
   scale_colour_manual(values = c("grey10", "grey40")) +
+  scale_x_continuous(breaks = c(-1000, 0, 1000)) +
   theme(legend.position = "none")
 
 # plot world map of samples
@@ -212,7 +214,7 @@ plot_map <- dat_debt %>%
                                      colour_brown), 0.5)) +
   coord_map(projection = "mollweide") +
   guides(fill = guide_legend(override.aes = list(alpha = 1))) +
-  theme(legend.position = 'bottom', 
+  theme(legend.position = 'top', 
         panel.grid.major = element_line(colour = "grey80"))
 
 
