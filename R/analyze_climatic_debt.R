@@ -228,7 +228,7 @@ plot_final <- plot_map / (plot_regr + plot_velocity) +
 # save plot_final
 ggsave(plot_final, filename = here("figures", 
                                    "fig2_debt_trends.png"), 
-       width = image_width, height = image_height*1.5, units = image_units, 
+       width = image_width, height = image_height*2, units = image_units, 
        bg = "white", device = ragg::agg_png)
 
 
