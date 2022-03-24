@@ -25,7 +25,8 @@ dat_debt <- read_rds(here("data",
            sd(temp_surface, na.rm = TRUE))
 
 
-
+# world map outlines
+world <- map_data("world")
 
 # calculate range debt ----------------------------------------------------
 
@@ -162,14 +163,19 @@ plot_velocity <- dat_velocity_debt %>%
            xmin = ymin, xmax = ymax, 
            fill = zone, colour = type)) +
   geom_vline(xintercept = 0, colour = "grey70") +
-  geom_text(aes(label = range_debt, x = new_x),
-            colour = "grey40",
-            position = position_dodge(width = 1), 
-            size = 10/.pt) +
   geom_linerange(position = position_dodge2(width = 1), 
                  lwd = 0.7, alpha = 0.5) +
   geom_point(position = position_dodge2(width = 1), 
              shape = 21, stroke = 0, size = 3.5) +
+  geom_text(aes(label = range_debt, x = new_x),
+            colour = "white",
+            position = position_dodge(width = 1), 
+            size = 8/.pt, 
+            fontface = "bold") +
+  geom_text(aes(label = range_debt, x = new_x),
+            colour = "grey20",
+            position = position_dodge(width = 1), 
+            size = 7/.pt) +
   labs(y = NULL, 
        x = "Poleward Range Velocity [km/8ka]") +
   scale_fill_manual(values = c(colour_lavender,
@@ -178,19 +184,50 @@ plot_velocity <- dat_velocity_debt %>%
   scale_colour_manual(values = c("grey10", "grey40")) +
   theme(legend.position = "none")
 
+# plot world map of samples
+plot_map <- dat_debt %>% 
+  distinct(pal.lat, pal.long) %>% 
+  mutate(abs_lat = abs(pal.lat), 
+         zone = case_when(
+           abs_lat >= 60 ~ "High",
+           between(abs_lat, 30, 60) ~ "Mid", 
+           between(abs_lat, 0, 30) ~ "Low")) %>% 
+  ggplot() +
+  geom_point(aes(x = pal.long, y = pal.lat,
+                 fill = zone),
+             na.rm = TRUE,
+             shape = 21,
+             colour = colour_grey,
+             stroke = 0.3,
+             size = 2.5) +
+  geom_map(aes(map_id = region), 
+           data = world, map = world, fill = "grey40") + 
+  scale_x_continuous(name = '', limits = c(-180, 180), expand = c(0,0), 
+                     labels = NULL, breaks = seq(-180, 180, by = 45)) +
+  scale_y_continuous(name = '', limits = c(-90, 90),   expand = c(0,0), 
+                     labels = NULL) +
+  scale_fill_manual(name = "Latitude", 
+                    values = alpha(c(colour_lavender,
+                                     colour_green,
+                                     colour_brown), 0.5)) +
+  coord_map(projection = "mollweide") +
+  guides(fill = guide_legend(override.aes = list(alpha = 1))) +
+  theme(legend.position = 'bottom', 
+        panel.grid.major = element_line(colour = "grey80"))
+
+
 
 # combine and save --------------------------------------------------------
 
 # patch plots together
-plot_final <- plot_regr / plot_velocity +
+plot_final <- plot_map / (plot_regr + plot_velocity) +
   plot_annotation(tag_levels = "a") +
-  plot_layout(heights = c(1, 2))
+  plot_layout(heights = c(1, 1))
 
 
-# save plot
 # save plot_final
 ggsave(plot_final, filename = here("figures", 
-                                   "fig3_debt_trends.png"), 
+                                   "fig2_debt_trends.png"), 
        width = image_width, height = image_height*1.5, units = image_units, 
        bg = "white", device = ragg::agg_png)
 
