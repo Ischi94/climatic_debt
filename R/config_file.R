@@ -1,4 +1,4 @@
-# general configurations
+# general configurations for plots
 
 #set ggplot output
 ggplot2::theme_set(ggplot2::theme_minimal(base_size = 10))
@@ -8,8 +8,8 @@ ggplot2::theme_update(text = element_text(colour = "grey20", size = 10),
                       legend.title = element_text(colour = "grey20", size = 10),
                       axis.text = element_text(colour = "grey20", size = 10), 
                       strip.text = element_text(colour = "grey20", size = 10),
-                      panel.grid.minor = element_line(size = 0.1), 
-                      panel.grid.major = element_line(size = 0.3), 
+                      panel.grid.minor = element_blank(),  
+                      panel.grid.major = element_blank(),
                       plot.title = element_text(colour = "grey20", size = 10))
 
 # define output sizes
