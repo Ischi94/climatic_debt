@@ -19,50 +19,18 @@ dat_mean_temp <- read_csv(here("data",
   select(bin, temp_ym_0m) 
 
 
-# world map outlines
-world <- map_data("world")
 
 
 
-# climatic debt through time ----------------------------------------------
+# source plotting configurations ------------------------------------------
 
-dat_debt_time <- dat_debt %>%
-  group_by(bin) %>% 
-  summarise(mean_cl_boot(climatic_debt)) %>% 
-  select(bin, climatic_debt = y)
-  
-# visualise
-plot_debt_time <- dat_debt_time %>% 
-  ggplot(aes(bin, climatic_debt)) +
-  geom_hline(yintercept = 0) +
-  geom_line(colour = "coral", lwd = 1.3) +
-  labs(x = "Age [ka]", 
-       y = "Average Global\nClimatic Debt [°C]") +
-  scale_x_reverse() +
-  theme_minimal() +
-  theme(panel.grid = element_blank())
+source(here("R", "config_file.R"))
 
 
-
-# global temperature -----------------------------------------------------------
-
-
-# global temperature through time
-plot_temp <- dat_mean_temp %>% 
-  ggplot(aes(bin, temp_ym_0m)) +
-  geom_line() +
-  labs(x = "Age [ka]", 
-       y = "Average Global\nTemperature [°C]") +
-  scale_x_reverse() +
-  coord_cartesian(xlim = c(700, 0)) +
-  theme_minimal() +
-  theme(panel.grid = element_blank())
+# model comparison --------------------------------------------------------
 
 
-
-
-# climatic debt as a function of temperature ------------------------------
-
+# climatic debt as a function of temperature
 # calculate short-term changes
 dat_debt_trends <- dat_debt %>% 
   # summarize per latitudinal zone
@@ -125,11 +93,11 @@ aic_loo <- function(lm_frml,
       filter(nr != i) %>% 
       lm(formula = lm_frml, data = .) %>% 
       AIC()
-    }
+  }
   
   return(dat_aic)
   
-  }
+}
 
 
 
@@ -162,10 +130,10 @@ mod_list <- list(mod_null, mod_st,
 
 # create comparison table
 dat_mod_comp <- tibble(model = c("Null Model",
-                                 "Short Term",
-                                 "Short Term + 8ka",
-                                 "Short Term + 16ka",
-                                 "Short Term + 24ka"),
+                                 "Temperature",
+                                 "Temperature\n + 8ka",
+                                 "Temperature\n + 16ka",
+                                 "Temperature\n + 24ka"),
                        aic = map_dbl(mod_list, mean),
                        aic_sd = map_dbl(mod_list, sd)) %>%
   # include uncertainty based on loo
@@ -178,24 +146,106 @@ dat_mod_comp <- tibble(model = c("Null Model",
          radius = (upr - lwr)/2)
 
 
+# climatic debt through time ----------------------------------------------
 
+# calculate average trend and confidence interval via bootstrapping
+boot_debt <- function() {
   
-# visualize model comparison
-dat_mod_comp %>% 
+  dat_debt %>% 
+    slice_sample(n = 1000) %>% 
+    group_by(bin) %>% 
+    summarise(mean_debt = mean(climatic_debt)) %>% 
+    { spline(.$bin, .$mean_debt, ties = min, 
+             xout = unique(dat_debt$bin),
+             method = "natural") } %>% 
+    pluck("y")
+  
+}
+
+# replicate 10.000 times and get quantile based uncertainty intervals
+dat_debt_boot <- replicate(1e4, boot_debt()) %>% 
+  as_tibble() %>%
+  add_column(bin = unique(dat_debt$bin)) %>% 
+  pivot_longer(cols = - bin, 
+               names_to = "iteration", 
+               values_to = "climatic_debt") %>% 
+  group_by(bin) %>% 
+  summarise(lwr = quantile(climatic_debt, probs = 0.25), 
+            upr = quantile(climatic_debt, probs = 0.75),
+            climatic_debt = mean(climatic_debt)) 
+
+
+
+
+# visualizations ----------------------------------------------------------
+
+
+
+# global temperature through time
+plot_temp <- dat_mean_temp %>% 
+  ggplot(aes(bin, temp_ym_0m)) +
+  geom_line() +
+  labs(x = "Age [ka]", 
+       y = "Average Global\nTemperature [°C]") +
+  scale_x_reverse() +
+  coord_cartesian(xlim = c(700, 0), 
+                  ylim = c(12, 15)) +
+  scale_y_continuous(breaks = c(12, 13, 14))
+
+# climatic debt through thime
+plot_debt_time <- dat_debt_boot %>% 
+  ggplot(aes(bin, climatic_debt)) +
+  geom_hline(yintercept = 0) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr),
+              colour = "white", 
+              fill = colour_grey) +
+  geom_line(colour = colour_coral, lwd = 1) +
+  labs(x = "Age [ka]", 
+       y = "Average Global\nClimatic Debt [°C]") +
+  scale_y_continuous(breaks = seq(-4, 2, by = 2)) +
+  scale_x_reverse() +
+  theme()
+
+
+# model comparison
+plot_mod_comp <- dat_mod_comp %>% 
   mutate(model = fct_reorder(model, c(5:1))) %>% 
   ggplot(aes(delta_aic, model)) +
   geom_segment(aes(x = 0, xend = delta_aic, 
-                   yend = model)) +
+                   yend = model), 
+               colour = "grey20") +
   geom_point(aes(size = radius), 
-             colour = "coral") +
-  geom_point(size = 0.7) +
+             colour = colour_grey) +
+  geom_point(size = 1.5, shape = 21, 
+             stroke = 0.15, 
+             fill = colour_coral, 
+             colour = "grey20") +
   labs(y = NULL, x = expression(paste(Delta, "  AIC"))) +
-  theme_minimal() +
-  theme(legend.position = "none", 
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 
 
 
 
-plot_debt_time/plot_temp +
-  plot_layout(heights = c(2, 1))
+# combine and save --------------------------------------------------------
+
+
+# set out layout for final plot
+layout <- "
+AAA#
+AAAC
+AAAC
+BBBC
+BBB#
+"
+
+# patch together
+plot_final <- plot_debt_time + plot_temp +  plot_mod_comp +
+  plot_annotation(tag_levels = "a") +
+  plot_layout(design = layout)
+
+
+# save plot_final
+ggsave(plot_final, filename = here("figures", 
+                                   "fig3_comparison.png"), 
+       width = image_width, height = image_height*1.5, units = image_units, 
+       bg = "white", device = ragg::agg_png)
