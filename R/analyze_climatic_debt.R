@@ -24,13 +24,11 @@ dat_debt <- read_rds(here("data",
   mutate(temp_anom = (temp_surface - mean(temp_surface, na.rm = TRUE)) / 
            sd(temp_surface, na.rm = TRUE))
 
-# world map outlines
-world <- map_data("world")
 
 
 
+# calculate range debt ----------------------------------------------------
 
-# transform to geographic debt -------------------------------------
 
 # calculate distance to equator of each observation
 dat_dist_eq <- dat_debt  %>% 
@@ -50,7 +48,7 @@ dat_cti_per_time <- dat_debt %>%
                               "cooling"), 
          cti_change = cti - lead(cti, default = mean(cti))) %>% 
   drop_na(short_term) %>% 
-  group_by(short_term) %>% 
+  group_by(zone, short_term) %>% 
   summarise(mean_cl_boot(cti_change))
 
 
@@ -67,7 +65,8 @@ cti_change <- lm(cti ~ dist_eq, data = dat_dist_eq)$coefficients[[2]]
 # (°C/8ka) / (°C/km) = km/8ka
 # # this is the velocity of cti
 dat_cti_velocity <- dat_cti_per_time %>% 
-  mutate(across(y:ymax, ~ .x/cti_change))
+  mutate(across(y:ymax, ~ .x/cti_change)) %>% 
+  add_column(type = "cti")
 
 
 # repeat for temperature
@@ -80,7 +79,7 @@ dat_temp_per_time <- dat_debt %>%
          temp_change = temp_anom - lead(temp_anom, 
                                        default = mean(temp_anom))) %>% 
   drop_na(short_term) %>% 
-  group_by(short_term) %>% 
+  group_by(zone, short_term) %>% 
   summarise(mean_cl_boot(temp_change))
 
 
@@ -97,131 +96,18 @@ temp_change <- lm(temp_anom ~ dist_eq, data = dat_dist_eq)$coefficients[[2]]
 # (°C/8ka) / (°C/km) = km/8ka
 # this is the velocity of cti
 dat_temp_velocity <- dat_temp_per_time %>% 
-  mutate(across(y:ymax, ~ .x/temp_change))
+  mutate(across(y:ymax, ~ .x/temp_change)) %>% 
+  add_column(type = "temperature")
 
 
-# transform to geographic range shift -------------------------------------
-
-
-dat_dist_eq <- dat_debt  %>% 
-  group_by(bin, zone) %>% 
-  summarise(av_anom = mean(temp_anom)) %>% 
-  pivot_wider(names_from = zone, values_from = av_anom) %>% 
-  ungroup() %>% 
-  mutate(across(High:Mid, ~ if_else(.x > lead(.x),
-                                    "warming",
-                                    "cooling"))) %>%
-  full_join(dat_debt %>% select(-zone)) %>% 
-  # convert from decimal degrees to radians
-  mutate(across(c(pal.lat, pal.long), ~ .x*pi/180)) %>% 
-  # calculate distance to equator in km / the earth mean radius is 6371 km 
-  # this the great circle distance based on spherical law of cosines
-  mutate(dist_eq = acos(sin(0)*sin(pal.lat) + cos(0)*cos(pal.lat) * cos(pal.long-pal.long)) * 6371) %>% 
-  # bring into right format
-  pivot_longer(cols = High:Mid, 
-               names_to = "zone", 
-               values_to = "short_term") %>% 
-  drop_na(short_term) 
-
-
-
-# rate of change in community composition in response to climate change (warming or cooling) (°C per 8ka)
-dat_dist_eq %>% 
-  ggplot(aes(bin, cti)) +
-  geom_point()
-
-cti_change <- lm(cti ~ dist_eq, data = dat_dist_eq)$coefficients[[2]]
-
-# estimate average community temperature index 
-cti_mean <- dat_dist_eq %>% 
-  group_by(zone) %>% 
-  summarise(mean_cl_boot(cti)) %>% 
-  rename(mean_cti = y, 
-         lwr = ymin, 
-         upr = ymax)
-
-
-# compare latitudinal
-dat_dist_eq %>% 
-  group_by(temp_change, zone) %>% 
-  summarise(mean_cl_boot(cti)) %>% 
-  ungroup() %>% 
-  # calculate change to average
-  full_join(cti_mean) %>% 
-  mutate(mean_range = y - mean_cti,
-         lwr_range = ymin - lwr,
-         upr_range = ymax - upr) %>%
-  mutate(across(mean_range:upr_range, ~ .x / cti_change))
-
-
-# what range is actually needed
-
-dat_dist_eq %>% 
-  ggplot(aes(dist_eq, short_term)) +
-  geom_point()
-
-# estimate average polward shift based on cti
-# the change in cti per 1 km further away from the equator
-temp_change <- lm(dist_eq ~ temp_surface, data = dat_dist_eq)$coefficients[[2]]
-
-# estimate average community temperature index 
-temp_mean <- dat_dist_eq %>% 
-  group_by(zone) %>% 
-  summarise(mean_cl_boot(short_term)) %>% 
-  rename(mean_temp = y, 
-         lwr = ymin, 
-         upr = ymax)
-
-
-# compare latitudinal
-dat_dist_eq %>% 
-  group_by(temp_change, zone) %>% 
-  summarise(mean_cl_boot(short_term)) %>% 
-  ungroup() %>% 
-  full_join(temp_mean) %>% 
-  mutate(mean_range = y - mean_temp,
-         lwr_range = ymin - lwr,
-         upr_range = ymax - upr) %>%
-  mutate(across(mean_range:upr_range, ~ .x * temp_change))
-
-
-  # # calculate change to average
-  # mutate(across(y:ymax, ~ .x - temp_mean), 
-  #        across(y:ymax, ~ .x * temp_change)) 
+# combine with cti velocity
+dat_velocity <- dat_temp_velocity %>% 
+  full_join(dat_cti_velocity) %>% 
+  ungroup()
 
 
 
 # visualize ---------------------------------------------------------------
-
-# plot world map of samples
-plot_map <- dat_debt %>% 
-  distinct(pal.lat, pal.long) %>% 
-  mutate(abs_lat = abs(pal.lat), 
-         zone = case_when(
-           abs_lat >= 60 ~ "High",
-           between(abs_lat, 30, 60) ~ "Mid", 
-           between(abs_lat, 0, 30) ~ "Low")) %>% 
-  ggplot() +
-  geom_point(aes(x = pal.long, y = pal.lat,
-                 fill = zone),
-             na.rm = TRUE,
-             shape = 21,
-             colour = colour_grey,
-             stroke = 0.3,
-             size = 2.5) +
-  geom_map(aes(map_id = region), 
-           data = world, map = world, fill = "grey40") + 
-  scale_x_continuous(name = '', limits = c(-180, 180), expand = c(0,0), 
-                     labels = NULL, breaks = seq(-180, 180, by = 45)) +
-  scale_y_continuous(name = '', limits = c(-90, 90),   expand = c(0,0), 
-                     labels = NULL) +
-  scale_fill_manual(name = "Latitude", 
-                    values = alpha(c(colour_lavender,
-                                     colour_green,
-                                     colour_brown), 0.5)) +
-  theme_minimal() +
-  coord_map(projection = "mollweide") +
-  theme(legend.position = 'bottom')
 
 
 # plot temperature anomaly versus climatic debt
@@ -229,6 +115,7 @@ plot_regr <- dat_debt %>%
   mutate(temp_anom = (temp_surface - mean(temp_surface, na.rm = TRUE)) / 
            sd(temp_surface, na.rm = TRUE)) %>% 
   ggplot(aes(climatic_debt, temp_anom)) +
+  geom_vline(xintercept = 0, colour = "grey70") +
   geom_jitter(aes(fill = zone), 
               width = 0, height = 0.1, 
               shape = 21,
@@ -237,26 +124,77 @@ plot_regr <- dat_debt %>%
               size = 2.5) +
   geom_smooth(aes(colour = zone),
               method = "lm", 
-              lwd = 1.5, 
-              fill = colour_grey) +
+              lwd = 1, 
+              fill = colour_grey, 
+              alpha = 0.9) +
   scale_color_manual(values = c(colour_lavender,
                                 colour_green,
                                 colour_brown)) +
   scale_fill_manual(values = alpha(c(colour_lavender,
                                 colour_green,
-                                colour_brown), 0.5)) +
-  theme_minimal() +
+                                colour_brown), 0.2)) +
+  labs(y = "Temperature\nAnomaly [°C]", 
+       x = "Climatic Debt [°C]") +
   theme(legend.position = "none")
 
 
+# velocity change aka range debt
+dat_velocity_debt <- dat_velocity %>% 
+  # calculate difference between what is needed (temperature) and the actual
+  # shift (cti)
+  pivot_wider(names_from = type, values_from = y:ymax) %>% 
+  mutate(range_debt = abs(y_temperature) - abs(y_cti), 
+         lwr = abs(ymin_temperature) - abs(ymin_cti), 
+         upr = abs(ymax_temperature) - abs(ymax_cti), 
+         across(range_debt:upr, ~ round(.x) %>% as.character(.x)), 
+         range_debt_unc = paste0(range_debt, 
+                             " [", 
+                             lwr, ", ", 
+                             upr, "]"), 
+         new_x = (y_temperature + y_cti)/ 2) %>% 
+  select(zone, short_term, range_debt, range_debt_unc, new_x) %>% 
+  full_join(dat_velocity) %>% 
+  mutate(short_term = str_to_title(short_term)) 
+
+# plot
+plot_velocity <- dat_velocity_debt %>% 
+  ggplot(aes(y = short_term, x = y, 
+           xmin = ymin, xmax = ymax, 
+           fill = zone, colour = type)) +
+  geom_vline(xintercept = 0, colour = "grey70") +
+  geom_text(aes(label = range_debt, x = new_x),
+            colour = "grey40",
+            position = position_dodge(width = 1), 
+            size = 10/.pt) +
+  geom_linerange(position = position_dodge2(width = 1), 
+                 lwd = 0.7, alpha = 0.5) +
+  geom_point(position = position_dodge2(width = 1), 
+             shape = 21, stroke = 0, size = 3.5) +
+  labs(y = NULL, 
+       x = "Poleward Range Velocity [km/8ka]") +
+  scale_fill_manual(values = c(colour_lavender,
+                                colour_green,
+                                colour_brown)) +
+  scale_colour_manual(values = c("grey10", "grey40")) +
+  theme(legend.position = "none")
 
 
+# combine and save --------------------------------------------------------
 
-
-
-
-
-plot3 / (plot1 + plot2) +
+# patch plots together
+plot_final <- plot_regr / plot_velocity +
   plot_annotation(tag_levels = "a") +
-  plot_layout(heights = c(2, 1, 1))
+  plot_layout(heights = c(1, 2))
+
+
+# save plot
+# save plot_final
+ggsave(plot_final, filename = here("figures", 
+                                   "fig3_debt_trends.png"), 
+       width = image_width, height = image_height*1.5, units = image_units, 
+       bg = "white", device = ragg::agg_png)
+
+
+
+
   
