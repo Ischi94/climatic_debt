@@ -8,3 +8,6 @@
 
 # gcm data
 /data/gcm_annual_mean/
+
+# all inkscape figures
+figures/inkscape/
