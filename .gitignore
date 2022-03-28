@@ -11,3 +11,6 @@
 
 # all inkscape figures
 figures/inkscape/
+
+# ignore reports
+reports/
