@@ -134,7 +134,7 @@ plot_regr <- dat_debt %>%
   scale_fill_manual(values = alpha(c(colour_lavender,
                                 colour_green,
                                 colour_brown), 0.2)) +
-  scale_x_continuous(breaks = c(-10, 0, 10)) +
+  scale_x_continuous(breaks = c(-5, 0, 5)) +
   labs(y = "Temperature\nAnomaly [°C]", 
        x = "Climatic Debt [°C]") +
   theme(legend.position = "none")
@@ -165,9 +165,9 @@ plot_velocity <- dat_velocity_debt %>%
            fill = zone, colour = type)) +
   geom_vline(xintercept = 0, colour = "grey70") +
   geom_linerange(position = position_dodge2(width = 1), 
-                 lwd = 0.7, alpha = 0.5) +
+                 lwd = 0.7) +
   geom_point(position = position_dodge2(width = 1), 
-             shape = 21, stroke = 0, size = 3.5) +
+             shape = 21, stroke = 0.5, size = 2.5) +
   geom_text(aes(label = range_debt, x = new_x),
             colour = "white",
             position = position_dodge(width = 1), 
@@ -177,14 +177,29 @@ plot_velocity <- dat_velocity_debt %>%
             colour = "grey20",
             position = position_dodge(width = 1), 
             size = 10/.pt) +
+  geom_hline(yintercept = 1.5, colour = colour_grey, 
+             linetype = "dotted") +
+  annotate(geom = "curve", 
+           x = -300, xend = 450, 
+           y = 1.72, yend = 2, 
+           curvature = -0.3, 
+           arrow = arrow(length = unit(0.05, "inch"), 
+                         ends = "first"), 
+           colour = colour_grey, lwd = 0.3) +
+  annotate(geom = "text", 
+           x = 1120,y = 2, 
+           label = "Range Debt", 
+           colour = colour_grey, 
+           size = 10/.pt) +
   labs(y = NULL, 
        x = "Poleward Range Velocity [km/8ka]") +
-  scale_fill_manual(values = c(colour_lavender,
+  scale_fill_manual(values = alpha(c(colour_lavender,
                                 colour_green,
-                                colour_brown)) +
-  scale_colour_manual(values = c("grey10", "grey40")) +
+                                colour_brown), 0.8)) +
+  scale_colour_manual(values = rep(colour_grey, 2)) +
   scale_x_continuous(breaks = c(-1000, 0, 1000)) +
   theme(legend.position = "none")
+
 
 # plot world map of samples
 plot_map <- dat_debt %>% 
