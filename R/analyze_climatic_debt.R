@@ -20,7 +20,7 @@ dat_debt <- read_rds(here("data",
            abs_lat >= 60 ~ "High",
            between(abs_lat, 30, 60) ~ "Mid", 
            between(abs_lat, 0, 30) ~ "Low")) %>% 
-  # cnovert temperature in temperature anomaly
+  # convert temperature in temperature anomaly
   mutate(temp_anom = (temp_surface - mean(temp_surface, na.rm = TRUE)) / 
            sd(temp_surface, na.rm = TRUE))
 
@@ -111,33 +111,69 @@ dat_velocity <- dat_temp_velocity %>%
 # visualize ---------------------------------------------------------------
 
 
+
+# prepare trend data
+
+dat_trends <- dat_debt %>% 
+  mutate(short_term = if_else(temp_anom > lead(temp_anom),
+                              "warming",
+                              "cooling"), 
+         temp_change = temp_anom - lead(temp_anom, 
+                                        default = mean(temp_anom))) %>% 
+  drop_na(short_term) 
 # plot temperature anomaly versus climatic debt
-plot_regr <- dat_debt %>% 
-  mutate(temp_anom = (temp_surface - mean(temp_surface, na.rm = TRUE)) / 
-           sd(temp_surface, na.rm = TRUE)) %>% 
-  ggplot(aes(climatic_debt, temp_anom)) +
-  geom_vline(xintercept = 0, colour = "grey70") +
-  geom_jitter(aes(fill = zone), 
-              width = 0, height = 0.1, 
-              shape = 21,
-              colour = colour_grey,
-              stroke = 0.3, 
-              size = 2.5) +
-  geom_smooth(aes(colour = zone),
-              method = "lm", 
+
+dat_trends %>% 
+  ggplot(aes(temp_change, climatic_debt)) +
+  geom_hline(yintercept = 0, 
+             colour = "grey70", 
+             linetype = "dotted") +
+  geom_smooth(aes(colour = zone, 
+                  group = interaction(short_term, zone)), 
+              method = "lm",
               lwd = 1, 
-              fill = colour_grey, 
-              alpha = 0.9) +
+              fill = colour_grey,
+              alpha = 0.9) + 
   scale_color_manual(values = c(colour_lavender,
                                 colour_green,
                                 colour_brown)) +
-  scale_fill_manual(values = alpha(c(colour_lavender,
-                                colour_green,
-                                colour_brown), 0.2)) +
-  scale_x_continuous(breaks = c(-5, 0, 5)) +
-  labs(y = "Temperature\nAnomaly [°C]", 
-       x = "Climatic Debt [°C]") +
+  scale_y_continuous(breaks = seq(-2, 2, 2)) +
+  coord_cartesian(ylim = c(-4, 4)) +
+  # facet_grid(cols = vars(short_term),
+  #            rows = vars(zone),
+  #            scales = "free_x") +
   theme(legend.position = "none")
+
+
+dat_trends %>% 
+  ggplot(aes(temp_change, climatic_debt)) +
+  geom_hline(yintercept = 0, 
+             colour = "grey70", 
+             linetype = "dotted") +
+  geom_line(data = tibble(climatic_debt = seq(mean(dat_trends$climatic_debt),
+                                              -4, 
+                                              length.out = 20), 
+                          temp_change = seq(0,
+                                            -4 - mean(dat_trends$climatic_debt), 
+                                            length.out = 20)), 
+            colour = "grey40") + 
+  geom_line(data = tibble(climatic_debt = seq(mean(dat_trends$climatic_debt),
+                                              2, 
+                                              length.out = 20),
+                          temp_change = seq(0, 
+                                            2 - mean(dat_trends$climatic_debt), 
+                                            length.out = 20)), 
+            colour = "grey40") +
+  
+  geom_hline(yintercept = mean(dat_trends$climatic_debt), 
+             colour = "grey40") +
+  geom_smooth(colour = colour_coral, 
+              fill = colour_grey,
+              method = "lm",
+              lwd = 1, 
+              alpha = 0.9) +
+  scale_y_continuous(breaks = seq(-2, 2, 2)) +
+  coord_cartesian(ylim = c(-4, 2)) 
 
 
 # velocity change aka range debt
