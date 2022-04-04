@@ -177,14 +177,17 @@ plot_trends_lat <- dat_trends %>%
              colour = "grey70", 
              linetype = "dotted") +
   geom_smooth(aes(colour = zone, 
-                  group = interaction(short_term, zone)), 
+                  group = interaction(short_term, zone), 
+                  fill = zone), 
               method = "lm",
               lwd = 1, 
-              fill = colour_grey,
               alpha = 0.4) + 
   scale_color_manual(values = alpha(c(colour_lavender,
                                 colour_green,
-                                colour_brown), 0.7)) +
+                                colour_brown), 0.8)) +
+  scale_fill_manual(values = alpha(c(colour_lavender,
+                                      colour_green,
+                                      colour_brown), 0.3)) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-4, 4), 
@@ -216,8 +219,7 @@ dat_velocity_debt <- dat_velocity %>%
   mutate(short_term = str_to_title(short_term)) 
 
 # plot
-plot_velocity <-
-dat_velocity_debt %>% 
+plot_velocity <- dat_velocity_debt %>% 
   ggplot(aes(y = short_term, x = y, 
            xmin = ymin, xmax = ymax, 
            fill = zone, colour = type)) +
@@ -261,9 +263,9 @@ dat_velocity_debt %>%
            size = 10/.pt) +
   labs(y = NULL, 
        x = "Poleward Range Velocity [km/8ka]") +
-  scale_fill_manual(values = alpha(c(colour_lavender,
+  scale_fill_manual(values = c(colour_lavender,
                                 colour_green,
-                                colour_brown), 0.9)) +
+                                colour_brown)) +
   scale_colour_manual(values = c("grey30", "grey70")) +
   scale_x_continuous(breaks = c(-1000, 0, 1000)) +
   theme(legend.position = "none")
