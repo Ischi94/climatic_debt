@@ -246,6 +246,6 @@ plot_final <- plot_debt_time + plot_temp +  plot_mod_comp +
 
 # save plot_final
 ggsave(plot_final, filename = here("figures", 
-                                   "fig3_comparison.png"), 
+                                   "fig4_comparison.png"), 
        width = image_width, height = image_height, units = image_units, 
        bg = "white", device = ragg::agg_png)
