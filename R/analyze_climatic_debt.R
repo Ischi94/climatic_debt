@@ -113,7 +113,6 @@ dat_velocity <- dat_temp_velocity %>%
 
 
 # prepare trend data
-
 dat_trends <- dat_debt %>% 
   mutate(short_term = if_else(temp_anom > lead(temp_anom),
                               "warming",
@@ -121,31 +120,11 @@ dat_trends <- dat_debt %>%
          temp_change = temp_anom - lead(temp_anom, 
                                         default = mean(temp_anom))) %>% 
   drop_na(short_term) 
+
 # plot temperature anomaly versus climatic debt
 
-dat_trends %>% 
-  ggplot(aes(temp_change, climatic_debt)) +
-  geom_hline(yintercept = 0, 
-             colour = "grey70", 
-             linetype = "dotted") +
-  geom_smooth(aes(colour = zone, 
-                  group = interaction(short_term, zone)), 
-              method = "lm",
-              lwd = 1, 
-              fill = colour_grey,
-              alpha = 0.9) + 
-  scale_color_manual(values = c(colour_lavender,
-                                colour_green,
-                                colour_brown)) +
-  scale_y_continuous(breaks = seq(-2, 2, 2)) +
-  coord_cartesian(ylim = c(-4, 4)) +
-  # facet_grid(cols = vars(short_term),
-  #            rows = vars(zone),
-  #            scales = "free_x") +
-  theme(legend.position = "none")
-
-
-dat_trends %>% 
+# in total
+plot_trends_total <- dat_trends %>% 
   ggplot(aes(temp_change, climatic_debt)) +
   geom_hline(yintercept = 0, 
              colour = "grey70", 
@@ -167,13 +146,55 @@ dat_trends %>%
   
   geom_hline(yintercept = mean(dat_trends$climatic_debt), 
              colour = "grey40") +
-  geom_smooth(colour = colour_coral, 
+  geom_smooth(colour = alpha(colour_coral, 0.7), 
               fill = colour_grey,
               method = "lm",
               lwd = 1, 
-              alpha = 0.9) +
+              alpha = 0.4) +
+  annotate(geom = "text", 
+           x = 1.6, y = 1.1, 
+           label = "No response", 
+           angle = 34, 
+           colour = "grey20",
+           size = 10/.pt) +
+  annotate(geom = "text", 
+           x = -1.7, y = -0.6, 
+           label = "Equilibrium", 
+           colour = "grey20",
+           size = 10/.pt) +
+  labs(y = "Climatic Debt [°C]", 
+       x = expression(paste(Delta, "  Temperature [°C]"))) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
-  coord_cartesian(ylim = c(-4, 2)) 
+  scale_x_continuous(breaks = seq(-2, 2, 2)) +
+  coord_cartesian(ylim = c(-4, 4), 
+                  xlim = c(-2.5, 2.5)) 
+
+
+# and per latitudinal zone
+plot_trends_lat <- dat_trends %>% 
+  ggplot(aes(temp_change, climatic_debt)) +
+  geom_hline(yintercept = 0, 
+             colour = "grey70", 
+             linetype = "dotted") +
+  geom_smooth(aes(colour = zone, 
+                  group = interaction(short_term, zone)), 
+              method = "lm",
+              lwd = 1, 
+              fill = colour_grey,
+              alpha = 0.4) + 
+  scale_color_manual(values = alpha(c(colour_lavender,
+                                colour_green,
+                                colour_brown), 0.7)) +
+  scale_y_continuous(breaks = seq(-2, 2, 2)) +
+  scale_x_continuous(breaks = seq(-2, 2, 2)) +
+  coord_cartesian(ylim = c(-4, 4), 
+                  xlim = c(-2.5, 2.5)) +
+  labs(y = "Climatic Debt [°C]", 
+       x = expression(paste(Delta, "  Temperature [°C]"))) +
+  theme(legend.position = "none")
+
+
+
 
 
 # velocity change aka range debt
@@ -273,7 +294,7 @@ plot_map <- dat_debt %>%
 # combine and save --------------------------------------------------------
 
 # patch plots together
-plot_final <- plot_map / (plot_regr + plot_velocity) +
+plot_final <- plot_map / (plot_trends_total + plot_trends_lat) +
   plot_annotation(tag_levels = "a") +
   plot_layout(heights = c(1, 1))
 
