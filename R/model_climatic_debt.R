@@ -184,7 +184,7 @@ dat_debt_boot <- replicate(1e4, boot_debt()) %>%
 # global temperature through time
 plot_temp <- dat_mean_temp %>% 
   ggplot(aes(bin, temp_ym_0m)) +
-  geom_line() +
+  geom_line(colour = "grey20") +
   labs(x = "Age [ka]", 
        y = "Average Global\nTemperature [°C]") +
   scale_x_reverse() +
@@ -198,8 +198,9 @@ plot_debt_time <- dat_debt_boot %>%
   geom_hline(yintercept = 0) +
   geom_ribbon(aes(ymin = lwr, ymax = upr),
               colour = "white", 
-              fill = colour_grey) +
-  geom_line(colour = colour_coral, lwd = 1) +
+              fill = colour_grey, 
+              alpha = 0.7) +
+  geom_line(colour = alpha(colour_coral, 0.7), lwd = 1) +
   labs(x = "Age [ka]", 
        y = "Average Global\nClimatic Debt [°C]") +
   scale_y_continuous(breaks = seq(-4, 2, by = 2)) +
@@ -218,7 +219,8 @@ plot_mod_comp <- dat_mod_comp %>%
              colour = colour_grey) +
   geom_point(size = 1.5, shape = 21, 
              stroke = 0.15, 
-             fill = colour_coral, 
+             fill = colour_coral,
+             alpha = 0.7,
              colour = "grey20") +
   labs(y = NULL, x = expression(paste(Delta, "  AIC"))) +
   theme(legend.position = "none")
