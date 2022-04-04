@@ -216,7 +216,8 @@ dat_velocity_debt <- dat_velocity %>%
   mutate(short_term = str_to_title(short_term)) 
 
 # plot
-plot_velocity <- dat_velocity_debt %>% 
+plot_velocity <-
+dat_velocity_debt %>% 
   ggplot(aes(y = short_term, x = y, 
            xmin = ymin, xmax = ymax, 
            fill = zone, colour = type)) +
@@ -224,36 +225,46 @@ plot_velocity <- dat_velocity_debt %>%
   geom_linerange(position = position_dodge2(width = 1), 
                  lwd = 0.7) +
   geom_point(position = position_dodge2(width = 1), 
-             shape = 21, stroke = 0.5, size = 2.5) +
+             shape = 21, stroke = 0.5, size = 3) +
   geom_text(aes(label = range_debt, x = new_x),
-            colour = "white",
-            position = position_dodge(width = 1), 
-            size = 11/.pt, 
-            fontface = "bold") +
-  geom_text(aes(label = range_debt, x = new_x),
-            colour = "grey20",
+            colour = colour_coral,
+            alpha = 0.7,
             position = position_dodge(width = 1), 
             size = 10/.pt) +
   geom_hline(yintercept = 1.5, colour = colour_grey, 
              linetype = "dotted") +
-  annotate(geom = "curve", 
-           x = -300, xend = 450, 
-           y = 1.72, yend = 2, 
-           curvature = -0.3, 
-           arrow = arrow(length = unit(0.05, "inch"), 
-                         ends = "first"), 
-           colour = colour_grey, lwd = 0.3) +
+  annotate(geom = "rect", 
+           xmin = 500, xmax = 1500, 
+           ymin = 1.9, ymax = 2.47, 
+           fill = "white", 
+           colour = colour_grey, lwd = 0.4) +
   annotate(geom = "text", 
-           x = 1120,y = 2, 
-           label = "Range Debt", 
+           x = 740, y = 2.53, 
+           label = "Interpretation", 
            colour = colour_grey, 
+           size = 10/.pt) +
+  annotate(geom = "text", 
+           x = 1000, y = 2.36, 
+           label = "Required Velocity", 
+           colour = "grey70",
+           size = 10/.pt) +
+  annotate(geom = "text", 
+           x = 1000, y = 2.2, 
+           label = "Range Debt", 
+           colour = colour_coral, 
+           alpha = 0.7, 
+           size = 10/.pt) +
+  annotate(geom = "text", 
+           x = 1000, y = 2.04, 
+           label = "Realized Velocity", 
+           colour = "grey30",
            size = 10/.pt) +
   labs(y = NULL, 
        x = "Poleward Range Velocity [km/8ka]") +
   scale_fill_manual(values = alpha(c(colour_lavender,
                                 colour_green,
-                                colour_brown), 0.8)) +
-  scale_colour_manual(values = rep(colour_grey, 2)) +
+                                colour_brown), 0.9)) +
+  scale_colour_manual(values = c("grey30", "grey70")) +
   scale_x_continuous(breaks = c(-1000, 0, 1000)) +
   theme(legend.position = "none")
 
@@ -306,6 +317,12 @@ ggsave(plot_final, filename = here("figures",
        bg = "white", device = ragg::agg_png)
 
 
+# save range velocity plot
+ggsave(plot_velocity, filename = here("figures", 
+                                   "fig3_range_debt.png"), 
+       width = image_width, height = image_height,
+       units = image_units, 
+       bg = "white", device = ragg::agg_png)
 
 
   
