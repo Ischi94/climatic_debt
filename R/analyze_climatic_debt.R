@@ -119,7 +119,7 @@ dat_trends <- dat_debt %>%
                               "cooling"), 
          temp_change = temp_anom - lead(temp_anom, 
                                         default = mean(temp_anom))) %>% 
-  drop_na(short_term) 
+  drop_na(short_term)
 
 # plot temperature anomaly versus climatic debt
 
@@ -216,10 +216,13 @@ dat_velocity_debt <- dat_velocity %>%
          new_x = (y_temperature + y_cti)/ 2) %>% 
   select(zone, short_term, range_debt, range_debt_unc, new_x) %>% 
   full_join(dat_velocity) %>% 
-  mutate(short_term = str_to_title(short_term)) 
+  mutate(short_term = str_to_title(short_term), 
+         zone = factor(zone, levels = c("Low", 
+                                        "Mid", 
+                                        "High"))) 
 
 # plot
-plot_velocity <- dat_velocity_debt %>% 
+plot_velocity <- dat_velocity_debt %>%
   ggplot(aes(y = short_term, x = y, 
            xmin = ymin, xmax = ymax, 
            fill = zone, colour = type)) +
@@ -261,11 +264,23 @@ plot_velocity <- dat_velocity_debt %>%
            label = "Realized Velocity", 
            colour = "grey30",
            size = 10/.pt) +
+  annotate(geom = "curve", 
+           x = -1600, xend = -1300, 
+           y = 1.64, yend = 1, 
+           curvature = 0.5, 
+           arrow = arrow(length = unit(0.05, "inch"), 
+                         ends = "first"), 
+           colour = colour_grey, lwd = 0.3) +
+  annotate(geom = "text", 
+           x = -1000, y = 1, 
+           label = "Range Debt\nin km per 8ka", 
+           colour = colour_grey, 
+           size = 10/.pt) +
   labs(y = NULL, 
        x = "Poleward Range Velocity [km/8ka]") +
-  scale_fill_manual(values = c(colour_lavender,
-                                colour_green,
-                                colour_brown)) +
+  scale_fill_manual(values = c(colour_green,
+                               colour_brown,
+                               colour_lavender)) +
   scale_colour_manual(values = c("grey30", "grey70")) +
   scale_x_continuous(breaks = c(-1000, 0, 1000)) +
   theme(legend.position = "none")
