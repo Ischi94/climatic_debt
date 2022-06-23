@@ -134,9 +134,9 @@ dat_velocity_debt <- dat_velocity %>%
   # calculate difference between what is needed (temperature) and the actual
   # shift (cti)
   pivot_wider(names_from = type, values_from = y:ymax) %>% 
-  mutate(range_debt = abs(y_temperature) - abs(y_cti), 
-         lwr = abs(ymin_temperature) - abs(ymin_cti), 
-         upr = abs(ymax_temperature) - abs(ymax_cti), 
+  mutate(range_debt = y_temperature - y_cti, 
+         lwr = ymin_temperature - ymin_cti, 
+         upr = ymax_temperature - ymax_cti, 
          across(range_debt:upr, ~ round(.x) %>% as.character(.x)), 
          range_debt_unc = paste0(range_debt, 
                                  " [", 
