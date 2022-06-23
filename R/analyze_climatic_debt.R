@@ -12,6 +12,7 @@ source(here("R", "config_file.R"))
 
 # load data ---------------------------------------------------------------
 
+# debt data
 dat_debt <- read_rds(here("data",
                           "cleaned_debt_wapls.rds")) %>% 
   # add latitudinal zones
@@ -60,14 +61,16 @@ mod_cti <- dat_trends %>%
   lmer(cti_change ~ 0 + zone:short_term + (1 | bin),
        data = .)
 
+# extract point estimate and confidence intervals
 dat_cti_per_time <- tibble(zone = rep(c("High", "Low", "Mid"), 2), 
        short_term = c(rep("cooling", 3), rep("warming", 3))) %>% 
   mutate(y = fixef(mod_cti), 
-         y_sd = bootMer(mod_cti, fixef, nsim = 100)$t %>% apply(., 2, sd), 
+         y_sd = bootMer(mod_cti, fixef, nsim = 1000)$t %>% apply(., 2, sd), 
          ymin = y - 1.96 * y_sd, 
          ymax = y + 1.96 * y_sd) %>% 
   arrange(zone) %>% 
   select(-y_sd)
+
 
 
 # calculate rate of change in CTI in kilometers from the equator to the poles in (°C/km)
@@ -93,10 +96,11 @@ dat_cti_velocity <- dat_cti_per_time %>%
 mod_temp <- lmer(temp_change ~ 0 + zone:short_term + (1 | bin),
        data = dat_trends)
 
+# extract point estimate and CI's
 dat_temp_per_time <- tibble(zone = rep(c("High", "Low", "Mid"), 2), 
                            short_term = c(rep("cooling", 3), rep("warming", 3))) %>% 
   mutate(y = fixef(mod_temp), 
-         y_sd = bootMer(mod_temp, fixef, nsim = 100)$t %>% apply(., 2, sd), 
+         y_sd = bootMer(mod_temp, fixef, nsim = 1000)$t %>% apply(., 2, sd), 
          ymin = y - 1.96 * y_sd, 
          ymax = y + 1.96 * y_sd) %>% 
   arrange(zone) %>% 
@@ -125,18 +129,38 @@ dat_velocity <- dat_temp_velocity %>%
   full_join(dat_cti_velocity) %>% 
   ungroup()
 
-
+# velocity change aka range debt
+dat_velocity_debt <- dat_velocity %>% 
+  # calculate difference between what is needed (temperature) and the actual
+  # shift (cti)
+  pivot_wider(names_from = type, values_from = y:ymax) %>% 
+  mutate(range_debt = abs(y_temperature) - abs(y_cti), 
+         lwr = abs(ymin_temperature) - abs(ymin_cti), 
+         upr = abs(ymax_temperature) - abs(ymax_cti), 
+         across(range_debt:upr, ~ round(.x) %>% as.character(.x)), 
+         range_debt_unc = paste0(range_debt, 
+                                 " [", 
+                                 lwr, ", ", 
+                                 upr, "]"), 
+         new_x = (y_temperature + y_cti)/ 2) %>% 
+  select(zone, short_term, range_debt, range_debt_unc, new_x) %>% 
+  full_join(dat_velocity) %>% 
+  mutate(short_term = str_to_title(short_term), 
+         zone = factor(zone, levels = c("Low", 
+                                        "Mid", 
+                                        "High"))) 
 
 # model climatic debt versus temperature ----------------------------------
 
 
-# fit overall model
+# fit overall model 
 mod1 <- lmer(climatic_debt ~ temp_change + (1 | bin),
              data = dat_trends)
 
-
+# create equal grid for inference (accounting for differential sampling in bins)
 new_data <- tibble(temp_change = seq(-3, 3, by = 0.1))  
-  
+
+# estimate over this equal grid  
 dat_trends_pred <- predict(mod1, newdata = new_data,
                            re.form = ~ 0,
                            allow.new.levels = TRUE) %>%
@@ -145,11 +169,13 @@ dat_trends_pred <- predict(mod1, newdata = new_data,
   rename(predicted_debt = value)
 
 # summarize beta coefficient
-bootMer(mod1, fixef, nsim = 100)
+bootMer(mod1, fixef, nsim = 1000)
 
   
 
 # latitudinal wise
+# split data into latitudinal zones and then apply mixed effect models,
+# accounting for sampling
 dat_mod <- dat_trends %>% 
   group_by(short_term, zone) %>%
   nest() %>% 
@@ -162,12 +188,15 @@ dat_mod <- dat_trends %>%
 
 # summarize the beta coefficient
 dat_mod %>% 
-  mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 100)), 
+  mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)), 
          beta_coef = map(lm_mod, fixef),
          beta_coef = map_dbl(beta_coef, pluck(2)),
          beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])), 
          ci_low = beta_coef - 1.96 * beta_coef_sd, 
-         ci_high = beta_coef + 1.96 * beta_coef_sd)
+         ci_high = beta_coef + 1.96 * beta_coef_sd) %>%
+  select(zone, short_term, beta_coef, ci_low, ci_high) %>% 
+  write_csv(here("data", 
+                 "beta_coefficient_per_latitude.csv"))
 
 
 new_data_lat <- dat_mod %>%
@@ -259,28 +288,9 @@ plot_trends_lat <- new_data_lat %>%
 plot_trends_lat
 
 
-# velocity change aka range debt
-dat_velocity_debt <- dat_velocity %>% 
-  # calculate difference between what is needed (temperature) and the actual
-  # shift (cti)
-  pivot_wider(names_from = type, values_from = y:ymax) %>% 
-  mutate(range_debt = abs(y_temperature) - abs(y_cti), 
-         lwr = abs(ymin_temperature) - abs(ymin_cti), 
-         upr = abs(ymax_temperature) - abs(ymax_cti), 
-         across(range_debt:upr, ~ round(.x) %>% as.character(.x)), 
-         range_debt_unc = paste0(range_debt, 
-                             " [", 
-                             lwr, ", ", 
-                             upr, "]"), 
-         new_x = (y_temperature + y_cti)/ 2) %>% 
-  select(zone, short_term, range_debt, range_debt_unc, new_x) %>% 
-  full_join(dat_velocity) %>% 
-  mutate(short_term = str_to_title(short_term), 
-         zone = factor(zone, levels = c("Low", 
-                                        "Mid", 
-                                        "High"))) 
 
-# plot
+
+# plot range debt as emerging from different velocities
 plot_velocity <- dat_velocity_debt %>%
   ggplot(aes(y = short_term, x = y, 
            xmin = ymin, xmax = ymax, 
