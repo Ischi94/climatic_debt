@@ -28,7 +28,18 @@ dat_debt <- read_rds(here("data",
 # world map outlines
 world <- map_data("world")
 
+
 # calculate range debt ----------------------------------------------------
+
+
+# prepare trend data
+dat_trends <- dat_debt %>% 
+  mutate(short_term = if_else(temp_anom > lead(temp_anom),
+                              "warming",
+                              "cooling"), 
+         temp_change = temp_anom - lead(temp_anom, 
+                                        default = mean(temp_anom))) %>% 
+  drop_na(short_term)
 
 
 # calculate distance to equator of each observation
@@ -43,14 +54,20 @@ dat_dist_eq <- dat_debt  %>%
 
 # calculate the rate of change in community composition in response to climate
 # change (either warming or cooling) in (°C/8ka)
-dat_cti_per_time <- dat_debt %>% 
-  mutate(short_term = if_else(temp_anom > lead(temp_anom),
-                              "warming",
-                              "cooling"), 
-         cti_change = cti - lead(cti, default = mean(cti))) %>% 
-  drop_na(short_term) %>% 
-  group_by(zone, short_term) %>% 
-  summarise(mean_cl_boot(cti_change))
+# we model it as a mixed effect to account for differential sampling in bins
+mod_cti <- dat_trends %>% 
+  mutate(cti_change = cti - lead(cti, default = mean(cti))) %>% 
+  lmer(cti_change ~ 0 + zone:short_term + (1 | bin),
+       data = .)
+
+dat_cti_per_time <- tibble(zone = rep(c("High", "Low", "Mid"), 2), 
+       short_term = c(rep("cooling", 3), rep("warming", 3))) %>% 
+  mutate(y = fixef(mod_cti), 
+         y_sd = bootMer(mod_cti, fixef, nsim = 100)$t %>% apply(., 2, sd), 
+         ymin = y - 1.96 * y_sd, 
+         ymax = y + 1.96 * y_sd) %>% 
+  arrange(zone) %>% 
+  select(-y_sd)
 
 
 # calculate rate of change in CTI in kilometers from the equator to the poles in (°C/km)
@@ -73,15 +90,17 @@ dat_cti_velocity <- dat_cti_per_time %>%
 # repeat for temperature
 # calculate the rate of change in temperature in response to climate
 # change (either warming or cooling) in (°C/8ka)
-dat_temp_per_time <- dat_debt %>% 
-  mutate(short_term = if_else(temp_anom > lead(temp_anom),
-                              "warming",
-                              "cooling"), 
-         temp_change = temp_anom - lead(temp_anom, 
-                                       default = mean(temp_anom))) %>% 
-  drop_na(short_term) %>% 
-  group_by(zone, short_term) %>% 
-  summarise(mean_cl_boot(temp_change))
+mod_temp <- lmer(temp_change ~ 0 + zone:short_term + (1 | bin),
+       data = dat_trends)
+
+dat_temp_per_time <- tibble(zone = rep(c("High", "Low", "Mid"), 2), 
+                           short_term = c(rep("cooling", 3), rep("warming", 3))) %>% 
+  mutate(y = fixef(mod_temp), 
+         y_sd = bootMer(mod_temp, fixef, nsim = 100)$t %>% apply(., 2, sd), 
+         ymin = y - 1.96 * y_sd, 
+         ymax = y + 1.96 * y_sd) %>% 
+  arrange(zone) %>% 
+  select(-y_sd)
 
 
 # calculate rate of change in CTI in kilometers from the equator to the poles in (°C/km)
@@ -109,16 +128,6 @@ dat_velocity <- dat_temp_velocity %>%
 
 
 # model climatic debt versus temperature ----------------------------------
-
-
-# prepare trend data
-dat_trends <- dat_debt %>% 
-  mutate(short_term = if_else(temp_anom > lead(temp_anom),
-                              "warming",
-                              "cooling"), 
-         temp_change = temp_anom - lead(temp_anom, 
-                                        default = mean(temp_anom))) %>% 
-  drop_na(short_term)
 
 
 # fit overall model
