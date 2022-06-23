@@ -192,7 +192,13 @@ plot_temp <- dat_mean_temp %>%
                   ylim = c(12, 15)) +
   scale_y_continuous(breaks = c(12, 13, 14))
 
-# climatic debt through thime
+# increase alpha when less observations, create dataset to map alpha onto
+dat_alpha <- dat_debt %>% 
+  group_by(bin, core_uniq) %>%
+  count() %>%
+  ungroup() 
+
+# climatic debt through time
 plot_debt_time <- dat_debt_boot %>% 
   ggplot(aes(bin, climatic_debt)) +
   geom_hline(yintercept = 0) +
@@ -201,6 +207,23 @@ plot_debt_time <- dat_debt_boot %>%
               fill = colour_grey, 
               alpha = 0.7) +
   geom_line(colour = alpha(colour_coral, 0.7), lwd = 1) +
+  geom_line(colour = "white", 
+            size = 1.1,
+            data = dat_debt_boot %>% 
+              filter(between(bin, 420, 480)), 
+            alpha = 0.8) +
+  annotate("curve", 
+           x = 350, xend = 410, 
+           y = -6.5, yend = -4.5, curvature = -0.3,
+           arrow = arrow(ends = "last", 
+                         length = unit(.2,"cm")), 
+           colour = "grey70") +
+  annotate("label",
+           x = 230, y = -6.5,
+           label = "sampling artefact",
+           colour = "grey70",
+           size = 10/.pt, 
+           label.size = 0) +
   labs(x = "Age [ka]", 
        y = "Average Global\nClimatic Debt [°C]") +
   scale_y_continuous(breaks = seq(-4, 2, by = 2)) +
@@ -243,7 +266,8 @@ BBB#
 # patch together
 plot_final <- plot_debt_time + plot_temp +  plot_mod_comp +
   plot_annotation(tag_levels = "a") +
-  plot_layout(design = layout)
+  plot_layout(design = layout) & 
+  coord_cartesian(clip = "off")
 
 
 # save plot_final
