@@ -1,7 +1,7 @@
 library(here)
 library(tidyverse)
 library(patchwork)
-
+library(lme4)
 
 # source plotting configurations ------------------------------------------
 
@@ -108,8 +108,7 @@ dat_velocity <- dat_temp_velocity %>%
 
 
 
-# visualize ---------------------------------------------------------------
-
+# model climatic debt versus temperature ----------------------------------
 
 
 # prepare trend data
@@ -121,44 +120,83 @@ dat_trends <- dat_debt %>%
                                         default = mean(temp_anom))) %>% 
   drop_na(short_term)
 
+
+# fit overall model
+mod1 <- lmer(climatic_debt ~ temp_change + (1 | bin),
+             data = dat_trends)
+
+
+new_data <- tibble(temp_change = seq(-3, 3))  
+  
+dat_trends_pred <- bootMer(mod1, predict(newdata = new_data,
+                                         re.form = ~ 0,
+                                         allow.new.levels = TRUE)) %>%
+  as_tibble() %>% 
+  add_column(new_data) %>% 
+  rename(predicted_debt = value)
+
+
+  
+
+# latitudinal wise
+dat_mod <- dat_trends %>% 
+  group_by(short_term, zone) %>%
+  nest() %>% 
+  mutate(lm_mod = map(.x = data,
+                      .f = function(df) {
+                        lmer(climatic_debt ~ temp_change + (1 | bin),
+                             data = df)
+                      })
+  )
+
+new_data_lat <- dat_mod %>%
+  mutate(new_data = if_else(short_term == "warming", 
+                            list(tibble(temp_change = seq(0, 3, by = 0.1))), 
+                            list(tibble(temp_change = seq(-3, 0, by = 0.1)))), 
+    predicted_debt = map2(.x = lm_mod,
+                          .y = new_data, 
+                          .f = ~ predict(.x,
+                                         newdata = .y,
+                                         re.form = ~ 0,
+                                         allow.new.levels = TRUE))) %>% 
+  select(-c(data, lm_mod)) %>% 
+  unnest(cols = c(predicted_debt, new_data))
+
+
+
+
+
+# visualize ---------------------------------------------------------------
+
+
+
 # plot temperature anomaly versus climatic debt
 
 # in total
-plot_trends_total <- dat_trends %>% 
-  ggplot(aes(temp_change, climatic_debt)) +
-  geom_hline(yintercept = 0, 
+plot_trends_total <- dat_trends_pred %>% 
+  ggplot(aes(temp_change, predicted_debt)) +
+  geom_vline(xintercept = 0, 
              colour = "grey70", 
              linetype = "dotted") +
-  geom_line(data = tibble(climatic_debt = seq(mean(dat_trends$climatic_debt),
-                                              -4, 
-                                              length.out = 20), 
-                          temp_change = seq(0,
-                                            -4 - mean(dat_trends$climatic_debt), 
-                                            length.out = 20)), 
-            colour = "grey40") + 
-  geom_line(data = tibble(climatic_debt = seq(mean(dat_trends$climatic_debt),
-                                              2, 
-                                              length.out = 20),
-                          temp_change = seq(0, 
-                                            2 - mean(dat_trends$climatic_debt), 
-                                            length.out = 20)), 
+  geom_line(data = tibble(predicted_debt = seq(-3 - abs(mean(dat_trends_pred$predicted_debt)),
+                                               3 - abs(mean(dat_trends_pred$predicted_debt)),
+                                               length.out = 20),
+                          temp_change = seq(-3, 3,
+                                            length.out = 20)),
             colour = "grey40") +
-  
-  geom_hline(yintercept = mean(dat_trends$climatic_debt), 
+  geom_hline(yintercept = 0 - abs(mean(dat_trends_pred$predicted_debt)), 
              colour = "grey40") +
-  geom_smooth(colour = alpha(colour_coral, 0.7), 
-              fill = colour_grey,
-              method = "lm",
+  geom_line(colour = colour_coral, 
               lwd = 1, 
-              alpha = 0.4) +
+              alpha = 0.8) +
   annotate(geom = "text", 
-           x = 1.6, y = 1.1, 
+           x = 1.4, y = 1.7, 
            label = "No response", 
-           angle = 34, 
+           angle = 30, 
            colour = "grey20",
            size = 10/.pt) +
   annotate(geom = "text", 
-           x = -1.7, y = -0.6, 
+           x = -1.4, y = 0.17, 
            label = "Equilibrium", 
            colour = "grey20",
            size = 10/.pt) +
@@ -166,22 +204,22 @@ plot_trends_total <- dat_trends %>%
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
-  coord_cartesian(ylim = c(-4, 4), 
+  coord_cartesian(ylim = c(-3, 3), 
                   xlim = c(-2.5, 2.5)) 
 
 
+plot_trends_total
+
+
 # and per latitudinal zone
-plot_trends_lat <- dat_trends %>% 
-  ggplot(aes(temp_change, climatic_debt)) +
-  geom_hline(yintercept = 0, 
+plot_trends_lat <- new_data_lat %>% 
+  ggplot(aes(temp_change, predicted_debt)) +
+  geom_vline(xintercept = 0, 
              colour = "grey70", 
              linetype = "dotted") +
-  geom_smooth(aes(colour = zone, 
-                  group = interaction(short_term, zone), 
-                  fill = zone), 
-              method = "lm",
-              lwd = 1, 
-              alpha = 0.4) + 
+  geom_line(aes(colour = zone, 
+                  group = interaction(short_term, zone)), 
+              lwd = 1) + 
   scale_color_manual(values = alpha(c(colour_lavender,
                                 colour_green,
                                 colour_brown), 0.8)) +
@@ -190,14 +228,14 @@ plot_trends_lat <- dat_trends %>%
                                       colour_brown), 0.3)) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
-  coord_cartesian(ylim = c(-4, 4), 
+  coord_cartesian(ylim = c(-3, 3), 
                   xlim = c(-2.5, 2.5)) +
   labs(y = "Climatic Debt [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   theme(legend.position = "none")
 
 
-
+plot_trends_lat
 
 
 # velocity change aka range debt
