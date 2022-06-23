@@ -126,15 +126,17 @@ mod1 <- lmer(climatic_debt ~ temp_change + (1 | bin),
              data = dat_trends)
 
 
-new_data <- tibble(temp_change = seq(-3, 3))  
+new_data <- tibble(temp_change = seq(-3, 3, by = 0.1))  
   
-dat_trends_pred <- bootMer(mod1, predict(newdata = new_data,
-                                         re.form = ~ 0,
-                                         allow.new.levels = TRUE)) %>%
+dat_trends_pred <- predict(mod1, newdata = new_data,
+                           re.form = ~ 0,
+                           allow.new.levels = TRUE) %>%
   as_tibble() %>% 
   add_column(new_data) %>% 
   rename(predicted_debt = value)
 
+# summarize beta coefficient
+bootMer(mod1, fixef, nsim = 100)
 
   
 
@@ -148,6 +150,16 @@ dat_mod <- dat_trends %>%
                              data = df)
                       })
   )
+
+# summarize the beta coefficient
+dat_mod %>% 
+  mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 100)), 
+         beta_coef = map(lm_mod, fixef),
+         beta_coef = map_dbl(beta_coef, pluck(2)),
+         beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])), 
+         ci_low = beta_coef - 1.96 * beta_coef_sd, 
+         ci_high = beta_coef + 1.96 * beta_coef_sd)
+
 
 new_data_lat <- dat_mod %>%
   mutate(new_data = if_else(short_term == "warming", 
