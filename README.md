@@ -28,3 +28,5 @@ New project on climatic debt in planktonic foraminifera.
 **robustness_depth.R**
 - robustness test calculating climatic debt based on temperature in the preferred depth of focal species instead of surface temperature  
   
+- **robustness_abundance.R**
+- robustness test calculating climatic debt based on presence-absence of species instead of relative abundance
