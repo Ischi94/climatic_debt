@@ -145,6 +145,28 @@ dat_mod_comp <- tibble(model = c("Null Model",
          upr = upr - .[[4, 2]], 
          radius = (upr - lwr)/2)
 
+# summarize uncertainty for r-squared for best performing lag
+
+# preallocate vector
+dat_rsq <- vector(mode = "double", 
+                  length = 1000)
+
+# iterate in blocks of 500 (bootstrapping)
+for (i in 1:1000) {
+  
+  dat_rsq[i] <- dat_debt_trends %>% 
+    drop_na(st, lt2) %>% 
+    slice_sample(n = 500) %>% 
+    lm(climatic_debt ~ st:lt2, data = .) %>% 
+    summary() %>% 
+    pluck("r.squared")
+}
+
+# summarize via normal approximation
+dat_rsq %>% 
+  as_tibble() %>% 
+  summarise(mean_cl_normal(value))
+
 
 # climatic debt through time ----------------------------------------------
 
