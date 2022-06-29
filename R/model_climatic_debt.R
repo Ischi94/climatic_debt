@@ -268,7 +268,8 @@ plot_mod_comp <- dat_mod_comp %>%
              alpha = 0.7,
              colour = "grey20") +
   labs(y = NULL, x = expression(paste(Delta, "  AIC"))) +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  coord_cartesian(clip = "off")
 
 
 
@@ -288,8 +289,7 @@ BBB#
 # patch together
 plot_final <- plot_debt_time + plot_temp +  plot_mod_comp +
   plot_annotation(tag_levels = "a") +
-  plot_layout(design = layout) & 
-  coord_cartesian(clip = "off")
+  plot_layout(design = layout) 
 
 
 # save plot_final
