@@ -137,7 +137,9 @@ dat_velocity_debt <- dat_velocity %>%
   mutate(range_debt = y_temperature - y_cti, 
          lwr = ymin_temperature - ymin_cti, 
          upr = ymax_temperature - ymax_cti, 
-         across(range_debt:upr, ~ round(.x) %>% as.character(.x)), 
+         across(range_debt:upr, ~ round(.x) %>% 
+                  abs() %>% 
+                  as.character()), 
          range_debt_unc = paste0(range_debt, 
                                  " [", 
                                  lwr, ", ", 
