@@ -348,7 +348,7 @@ plot_velocity <- dat_velocity_debt %>%
            colour = colour_grey, 
            size = 10/.pt) +
   labs(y = NULL, 
-       x = "Poleward Range Velocity [km/8ka]") +
+       x = "Equatorward Range Velocity [km/8ka]") +
   scale_fill_manual(values = c(colour_green,
                                colour_brown,
                                colour_lavender)) +
