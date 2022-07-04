@@ -214,11 +214,6 @@ plot_temp <- dat_mean_temp %>%
                   ylim = c(12, 15)) +
   scale_y_continuous(breaks = c(12, 13, 14))
 
-# increase alpha when less observations, create dataset to map alpha onto
-dat_alpha <- dat_debt %>% 
-  group_by(bin, core_uniq) %>%
-  count() %>%
-  ungroup() 
 
 # climatic debt through time
 plot_debt_time <- dat_debt_boot %>% 
@@ -229,28 +224,31 @@ plot_debt_time <- dat_debt_boot %>%
               fill = colour_grey, 
               alpha = 0.7) +
   geom_line(colour = alpha(colour_coral, 0.7), lwd = 1) +
-  geom_line(colour = "white", 
-            size = 1.1,
-            data = dat_debt_boot %>% 
-              filter(between(bin, 420, 480)), 
-            alpha = 0.8) +
+  annotate("rect",
+           xmin = 420, xmax = 480, 
+           ymin = -Inf, ymax = 3,
+           colour = "white",
+           fill = "white") +
   annotate("curve", 
-           x = 350, xend = 410, 
-           y = -6.5, yend = -4.5, curvature = -0.3,
+           x = 370, xend = 450, 
+           y = -2.8, yend = -2, curvature = -0.3,
            arrow = arrow(ends = "last", 
                          length = unit(.2,"cm")), 
            colour = "grey70") +
   annotate("label",
-           x = 230, y = -6.5,
-           label = "sampling artefact",
+           x = 250, y = -2.8,
+           label = "insufficient sampling",
            colour = "grey70",
            size = 10/.pt, 
            label.size = 0) +
   labs(x = "Age [ka]", 
        y = "Average Global\nClimatic Debt [°C]") +
-  scale_y_continuous(breaks = seq(-4, 2, by = 2)) +
+  coord_cartesian(ylim = c(-3, 3)) +
+  scale_y_continuous(breaks = seq(-2, 2, by = 2)) +
   scale_x_reverse() +
   theme()
+
+plot_debt_time
 
 
 # model comparison
@@ -268,7 +266,8 @@ plot_mod_comp <- dat_mod_comp %>%
              alpha = 0.7,
              colour = "grey20") +
   labs(y = NULL, x = expression(paste(Delta, "  AIC"))) +
-  theme(legend.position = "none") +
+  theme(legend.position = "none", 
+        axis.ticks.y = element_blank()) +
   coord_cartesian(clip = "off")
 
 

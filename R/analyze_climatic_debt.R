@@ -257,7 +257,8 @@ plot_trends_total <- dat_trends_pred %>%
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-3, 3), 
-                  xlim = c(-2.5, 2.5)) 
+                  xlim = c(-2.5, 2.5)) +
+  theme(axis.ticks = element_blank())
 
 
 plot_trends_total
@@ -284,7 +285,9 @@ plot_trends_lat <- new_data_lat %>%
                   xlim = c(-2.5, 2.5)) +
   labs(y = "Climatic Debt [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  theme(axis.ticks = element_blank())
+
 
 
 plot_trends_lat
@@ -386,7 +389,8 @@ plot_map <- dat_debt %>%
   coord_map(projection = "mollweide") +
   guides(fill = guide_legend(override.aes = list(alpha = 1))) +
   theme(legend.position = 'top', 
-        panel.grid.major = element_line(colour = "grey80"))
+        panel.grid.major = element_line(colour = "grey80"), 
+        axis.ticks = element_blank())
 
 
 
