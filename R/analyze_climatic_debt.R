@@ -140,14 +140,20 @@ dat_velocity_debt <- dat_velocity %>%
          lwr = ymin_temperature - ymin_cti, 
          upr = ymax_temperature - ymax_cti, 
          across(range_debt:upr, ~ round(.x) %>% 
-                  abs() %>% 
                   as.character()), 
-         range_debt_unc = paste0(range_debt, 
-                                 " [", 
+         range_debt_unc = paste0(" [", 
                                  lwr, ", ", 
                                  upr, "]"), 
-         new_x = (y_temperature + y_cti)/ 2) %>% 
-  select(zone, short_term, range_debt, range_debt_unc, new_x) %>% 
+         new_x = (y_temperature + y_cti)/ 2, 
+         new_x_unc = if_else(new_x < 0, 
+                             new_x + 250, 
+                             new_x + 210), 
+         new_x_mean = new_x - 100, 
+         new_x_mean = if_else(zone == "Mid" & short_term == "warming", 
+                              new_x, 
+                              new_x_mean)) %>% 
+  select(zone, short_term, range_debt, range_debt_unc, 
+         new_x_unc, new_x, new_x_mean) %>% 
   full_join(dat_velocity) %>% 
   mutate(short_term = str_to_title(short_term), 
          zone = factor(zone, levels = c("Low", 
@@ -246,7 +252,6 @@ plot_trends_total <- dat_trends_pred %>%
   geom_hline(yintercept = 0 - abs(mean(dat_trends_pred$predicted_debt)), 
              colour = "grey40") +
   geom_ribbon(aes(temp_change, ymin = lwr, ymax = upr), 
-              colour = alpha(colour_coral, 0.15),
               fill = colour_coral,
               alpha = 0.2) +
   geom_line(colour = colour_coral, 
@@ -315,15 +320,22 @@ plot_velocity <- dat_velocity_debt %>%
            xmin = ymin, xmax = ymax, 
            fill = zone, colour = type)) +
   geom_vline(xintercept = 0, colour = "grey70") +
+  geom_label(aes(label = range_debt_unc, x = new_x_unc, 
+                 group = zone),
+            colour = colour_grey,
+            fill = "white", 
+            label.size = 0,
+            position = position_dodge(width = 1), 
+            size = 10/.pt) +
+  geom_text(aes(label = range_debt, x = new_x_mean),
+             colour = colour_coral,
+             alpha = 0.7,
+             position = position_dodge(width = 1), 
+             size = 10/.pt) +
   geom_linerange(position = position_dodge2(width = 1), 
                  lwd = 0.7) +
   geom_point(position = position_dodge2(width = 1), 
              shape = 21, stroke = 0.5, size = 3) +
-  geom_text(aes(label = range_debt, x = new_x),
-            colour = colour_coral,
-            alpha = 0.7,
-            position = position_dodge(width = 1), 
-            size = 10/.pt) +
   geom_hline(yintercept = 1.5, colour = colour_grey, 
              linetype = "dotted") +
   annotate(geom = "rect", 
@@ -342,10 +354,15 @@ plot_velocity <- dat_velocity_debt %>%
            colour = "grey70",
            size = 10/.pt) +
   annotate(geom = "text", 
-           x = 1000, y = 2.2, 
+           x = 810, y = 2.2, 
            label = "Range Debt", 
            colour = colour_coral, 
            alpha = 0.7, 
+           size = 10/.pt) +
+  annotate(geom = "text", 
+           x = 1250, y = 2.2, 
+           label = " [95% CI]", 
+           colour = colour_grey, 
            size = 10/.pt) +
   annotate(geom = "text", 
            x = 1000, y = 2.04, 
@@ -353,8 +370,8 @@ plot_velocity <- dat_velocity_debt %>%
            colour = "grey30",
            size = 10/.pt) +
   annotate(geom = "curve", 
-           x = -1600, xend = -1300, 
-           y = 1.64, yend = 1, 
+           x = -1720, xend = -1300, 
+           y = 1.6, yend = 1, 
            curvature = 0.5, 
            arrow = arrow(length = unit(0.05, "inch"), 
                          ends = "first"), 
@@ -368,11 +385,16 @@ plot_velocity <- dat_velocity_debt %>%
        x = "Equatorward Range Velocity [km/8ka]") +
   scale_fill_manual(values = c(colour_green,
                                colour_brown,
-                               colour_lavender)) +
+                               colour_lavender), 
+                    name = NULL) +
   scale_colour_manual(values = c("grey30", "grey70")) +
   scale_x_continuous(breaks = c(-1000, 0, 1000)) +
-  theme(legend.position = "none")
+  guides(colour = "none", 
+         fill = guide_legend(override.aes = list(alpha = 0.6))) +
+  theme(legend.position = c(-0.05, 0.01), 
+        legend.text = element_text(colour = "grey70"))
 
+plot_velocity
 
 # plot world map of samples
 plot_map <- dat_debt %>% 
@@ -381,7 +403,10 @@ plot_map <- dat_debt %>%
          zone = case_when(
            abs_lat >= 60 ~ "High",
            between(abs_lat, 30, 60) ~ "Mid", 
-           between(abs_lat, 0, 30) ~ "Low")) %>% 
+           between(abs_lat, 0, 30) ~ "Low"), 
+         zone = factor(zone, levels = c("High", 
+                                        "Mid", 
+                                        "Low"))) %>% 
   ggplot() +
   geom_point(aes(x = pal.long, y = pal.lat,
                  fill = zone),
@@ -398,14 +423,15 @@ plot_map <- dat_debt %>%
                      labels = NULL) +
   scale_fill_manual(name = "Latitude", 
                     values = alpha(c(colour_lavender,
-                                     colour_green,
-                                     colour_brown), 0.5)) +
+                                     colour_brown, 
+                                     colour_green), 0.5)) +
   coord_map(projection = "mollweide") +
   guides(fill = guide_legend(override.aes = list(alpha = 1))) +
   theme(legend.position = 'top', 
         panel.grid.major = element_line(colour = "grey80"), 
         axis.ticks = element_blank())
 
+plot_map
 
 
 # combine and save --------------------------------------------------------
