@@ -268,7 +268,7 @@ plot_trends_total <- dat_trends_pred %>%
            label = "Equilibrium", 
            colour = "grey20",
            size = 10/.pt) +
-  labs(y = "Climatic Debt [°C]", 
+  labs(y = "Climatic Lag [°C/8ka]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
@@ -302,7 +302,7 @@ plot_trends_lat <- new_data_lat %>%
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-3, 3), 
                   xlim = c(-2.5, 2.5)) +
-  labs(y = "Climatic Debt [°C]", 
+  labs(y = "Climatic Lag [°C/8ka]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   theme(legend.position = "none") +
   theme(axis.ticks = element_blank())
@@ -355,7 +355,7 @@ plot_velocity <- dat_velocity_debt %>%
            size = 10/.pt) +
   annotate(geom = "text", 
            x = 810, y = 2.2, 
-           label = "Range Debt", 
+           label = "Range Lag", 
            colour = colour_coral, 
            alpha = 0.7, 
            size = 10/.pt) +
@@ -378,7 +378,7 @@ plot_velocity <- dat_velocity_debt %>%
            colour = colour_grey, lwd = 0.3) +
   annotate(geom = "text", 
            x = -1000, y = 1, 
-           label = "Range Debt\nin km per 8ka", 
+           label = "Range Lag\nin km per 8ka", 
            colour = colour_grey, 
            size = 10/.pt) +
   labs(y = NULL, 
