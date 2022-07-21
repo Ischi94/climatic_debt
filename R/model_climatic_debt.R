@@ -236,13 +236,13 @@ plot_debt_time <- dat_debt_boot %>%
                          length = unit(.2,"cm")), 
            colour = "grey70") +
   annotate("label",
-           x = 250, y = -2.8,
-           label = "insufficient sampling",
+           x = 280, y = -2.8,
+           label = "sampling hiatus",
            colour = "grey70",
            size = 10/.pt, 
            label.size = 0) +
   labs(x = "Age [ka]", 
-       y = "Average Global\nClimatic Debt [°C]") +
+       y = "Average Global\nClimatic Lag [°C/8ka]") +
   coord_cartesian(ylim = c(-3, 3)) +
   scale_y_continuous(breaks = seq(-2, 2, by = 2)) +
   scale_x_reverse() +
