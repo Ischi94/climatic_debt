@@ -1,7 +1,9 @@
 library(here)
+library(merTools)
 library(tidyverse)
 library(patchwork)
 library(lme4)
+
 
 # source plotting configurations ------------------------------------------
 
@@ -138,14 +140,20 @@ dat_velocity_debt <- dat_velocity %>%
          lwr = ymin_temperature - ymin_cti, 
          upr = ymax_temperature - ymax_cti, 
          across(range_debt:upr, ~ round(.x) %>% 
-                  abs() %>% 
                   as.character()), 
-         range_debt_unc = paste0(range_debt, 
-                                 " [", 
+         range_debt_unc = paste0(" [", 
                                  lwr, ", ", 
                                  upr, "]"), 
-         new_x = (y_temperature + y_cti)/ 2) %>% 
-  select(zone, short_term, range_debt, range_debt_unc, new_x) %>% 
+         new_x = (y_temperature + y_cti)/ 2, 
+         new_x_unc = if_else(new_x < 0, 
+                             new_x + 250, 
+                             new_x + 210), 
+         new_x_mean = new_x - 100, 
+         new_x_mean = if_else(zone == "Mid" & short_term == "warming", 
+                              new_x, 
+                              new_x_mean)) %>% 
+  select(zone, short_term, range_debt, range_debt_unc, 
+         new_x_unc, new_x, new_x_mean) %>% 
   full_join(dat_velocity) %>% 
   mutate(short_term = str_to_title(short_term), 
          zone = factor(zone, levels = c("Low", 
@@ -160,15 +168,17 @@ mod1 <- lmer(climatic_debt ~ temp_change + (1 | bin),
              data = dat_trends)
 
 # create equal grid for inference (accounting for differential sampling in bins)
-new_data <- tibble(temp_change = seq(-3, 3, by = 0.1))  
+new_data <- tibble(temp_change = seq(-3, 3, by = 0.1), 
+                   bin = 0)  
 
 # estimate over this equal grid  
-dat_trends_pred <- predict(mod1, newdata = new_data,
-                           re.form = ~ 0,
-                           allow.new.levels = TRUE) %>%
+dat_trends_pred <- predictInterval(mod1,
+                                   newdata = new_data, 
+                                   which = "full", 
+                                   include.resid.var = FALSE) %>%
   as_tibble() %>% 
   add_column(new_data) %>% 
-  rename(predicted_debt = value)
+  rename(predicted_debt = fit)
 
 # summarize beta coefficient
 bootMer(mod1, fixef, nsim = 1000)
@@ -188,31 +198,34 @@ dat_mod <- dat_trends %>%
                       })
   )
 
-# summarize the beta coefficient
-dat_mod %>% 
-  mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)), 
-         beta_coef = map(lm_mod, fixef),
-         beta_coef = map_dbl(beta_coef, pluck(2)),
-         beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])), 
-         ci_low = beta_coef - 1.96 * beta_coef_sd, 
-         ci_high = beta_coef + 1.96 * beta_coef_sd) %>%
-  select(zone, short_term, beta_coef, ci_low, ci_high) %>% 
-  write_csv(here("data", 
-                 "beta_coefficient_per_latitude.csv"))
+## summarize the beta coefficient and save in csv
+# dat_mod %>% 
+#   mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)), 
+#          beta_coef = map(lm_mod, fixef),
+#          beta_coef = map_dbl(beta_coef, pluck(2)),
+#          beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])), 
+#          ci_low = beta_coef - 1.96 * beta_coef_sd, 
+#          ci_high = beta_coef + 1.96 * beta_coef_sd) %>%
+#   select(zone, short_term, beta_coef, ci_low, ci_high) %>% 
+#   write_csv(here("data", 
+#                  "beta_coefficient_per_latitude.csv"))
 
 
 new_data_lat <- dat_mod %>%
   mutate(new_data = if_else(short_term == "warming", 
-                            list(tibble(temp_change = seq(0, 3, by = 0.1))), 
-                            list(tibble(temp_change = seq(-3, 0, by = 0.1)))), 
-    predicted_debt = map2(.x = lm_mod,
-                          .y = new_data, 
-                          .f = ~ predict(.x,
-                                         newdata = .y,
-                                         re.form = ~ 0,
-                                         allow.new.levels = TRUE))) %>% 
+                            list(tibble(temp_change = seq(0, 3, by = 0.1), 
+                                        bin = 0)), 
+                            list(tibble(temp_change = seq(-3, 0, by = 0.1), 
+                                        bin = 0))), 
+         predicted_debt = map2(.x = lm_mod,
+                               .y = new_data, 
+                               .f = ~ predictInterval(.x,
+                                                      newdata = .y, 
+                                                      which = "full", 
+                                                      include.resid.var = FALSE))) %>% 
   select(-c(data, lm_mod)) %>% 
-  unnest(cols = c(predicted_debt, new_data))
+  unnest(cols = c(predicted_debt, new_data)) %>% 
+  rename(predicted_debt = fit)
 
 
 
@@ -238,6 +251,9 @@ plot_trends_total <- dat_trends_pred %>%
             colour = "grey40") +
   geom_hline(yintercept = 0 - abs(mean(dat_trends_pred$predicted_debt)), 
              colour = "grey40") +
+  geom_ribbon(aes(temp_change, ymin = lwr, ymax = upr), 
+              fill = colour_coral,
+              alpha = 0.2) +
   geom_line(colour = colour_coral, 
               lwd = 1, 
               alpha = 0.8) +
@@ -252,7 +268,7 @@ plot_trends_total <- dat_trends_pred %>%
            label = "Equilibrium", 
            colour = "grey20",
            size = 10/.pt) +
-  labs(y = "Climatic Debt [°C]", 
+  labs(y = "Climatic Lag [°C/8ka]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
@@ -270,6 +286,9 @@ plot_trends_lat <- new_data_lat %>%
   geom_vline(xintercept = 0, 
              colour = "grey70", 
              linetype = "dotted") +
+  geom_ribbon(aes(fill = zone, 
+                  group = interaction(short_term, zone),
+                  ymin = lwr, ymax = upr)) +
   geom_line(aes(colour = zone, 
                   group = interaction(short_term, zone)), 
               lwd = 1) + 
@@ -278,12 +297,12 @@ plot_trends_lat <- new_data_lat %>%
                                 colour_brown), 0.8)) +
   scale_fill_manual(values = alpha(c(colour_lavender,
                                       colour_green,
-                                      colour_brown), 0.3)) +
+                                      colour_brown), 0.2)) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-3, 3), 
                   xlim = c(-2.5, 2.5)) +
-  labs(y = "Climatic Debt [°C]", 
+  labs(y = "Climatic Lag [°C/8ka]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   theme(legend.position = "none") +
   theme(axis.ticks = element_blank())
@@ -301,15 +320,22 @@ plot_velocity <- dat_velocity_debt %>%
            xmin = ymin, xmax = ymax, 
            fill = zone, colour = type)) +
   geom_vline(xintercept = 0, colour = "grey70") +
+  geom_label(aes(label = range_debt_unc, x = new_x_unc, 
+                 group = zone),
+            colour = colour_grey,
+            fill = "white", 
+            label.size = 0,
+            position = position_dodge(width = 1), 
+            size = 10/.pt) +
+  geom_text(aes(label = range_debt, x = new_x_mean),
+             colour = colour_coral,
+             alpha = 0.7,
+             position = position_dodge(width = 1), 
+             size = 10/.pt) +
   geom_linerange(position = position_dodge2(width = 1), 
                  lwd = 0.7) +
   geom_point(position = position_dodge2(width = 1), 
              shape = 21, stroke = 0.5, size = 3) +
-  geom_text(aes(label = range_debt, x = new_x),
-            colour = colour_coral,
-            alpha = 0.7,
-            position = position_dodge(width = 1), 
-            size = 10/.pt) +
   geom_hline(yintercept = 1.5, colour = colour_grey, 
              linetype = "dotted") +
   annotate(geom = "rect", 
@@ -328,10 +354,15 @@ plot_velocity <- dat_velocity_debt %>%
            colour = "grey70",
            size = 10/.pt) +
   annotate(geom = "text", 
-           x = 1000, y = 2.2, 
-           label = "Range Debt", 
+           x = 810, y = 2.2, 
+           label = "Range Lag", 
            colour = colour_coral, 
            alpha = 0.7, 
+           size = 10/.pt) +
+  annotate(geom = "text", 
+           x = 1250, y = 2.2, 
+           label = " [95% CI]", 
+           colour = colour_grey, 
            size = 10/.pt) +
   annotate(geom = "text", 
            x = 1000, y = 2.04, 
@@ -339,26 +370,31 @@ plot_velocity <- dat_velocity_debt %>%
            colour = "grey30",
            size = 10/.pt) +
   annotate(geom = "curve", 
-           x = -1600, xend = -1300, 
-           y = 1.64, yend = 1, 
+           x = -1720, xend = -1300, 
+           y = 1.6, yend = 1, 
            curvature = 0.5, 
            arrow = arrow(length = unit(0.05, "inch"), 
                          ends = "first"), 
            colour = colour_grey, lwd = 0.3) +
   annotate(geom = "text", 
            x = -1000, y = 1, 
-           label = "Range Debt\nin km per 8ka", 
+           label = "Range Lag\nin km per 8ka", 
            colour = colour_grey, 
            size = 10/.pt) +
   labs(y = NULL, 
        x = "Equatorward Range Velocity [km/8ka]") +
   scale_fill_manual(values = c(colour_green,
                                colour_brown,
-                               colour_lavender)) +
+                               colour_lavender), 
+                    name = NULL) +
   scale_colour_manual(values = c("grey30", "grey70")) +
   scale_x_continuous(breaks = c(-1000, 0, 1000)) +
-  theme(legend.position = "none")
+  guides(colour = "none", 
+         fill = guide_legend(override.aes = list(alpha = 0.6))) +
+  theme(legend.position = c(-0.05, 0.01), 
+        legend.text = element_text(colour = "grey70"))
 
+plot_velocity
 
 # plot world map of samples
 plot_map <- dat_debt %>% 
@@ -367,7 +403,10 @@ plot_map <- dat_debt %>%
          zone = case_when(
            abs_lat >= 60 ~ "High",
            between(abs_lat, 30, 60) ~ "Mid", 
-           between(abs_lat, 0, 30) ~ "Low")) %>% 
+           between(abs_lat, 0, 30) ~ "Low"), 
+         zone = factor(zone, levels = c("High", 
+                                        "Mid", 
+                                        "Low"))) %>% 
   ggplot() +
   geom_point(aes(x = pal.long, y = pal.lat,
                  fill = zone),
@@ -384,14 +423,15 @@ plot_map <- dat_debt %>%
                      labels = NULL) +
   scale_fill_manual(name = "Latitude", 
                     values = alpha(c(colour_lavender,
-                                     colour_green,
-                                     colour_brown), 0.5)) +
+                                     colour_brown, 
+                                     colour_green), 0.5)) +
   coord_map(projection = "mollweide") +
   guides(fill = guide_legend(override.aes = list(alpha = 1))) +
   theme(legend.position = 'top', 
         panel.grid.major = element_line(colour = "grey80"), 
         axis.ticks = element_blank())
 
+plot_map
 
 
 # combine and save --------------------------------------------------------
