@@ -1,7 +1,9 @@
 library(here)
+library(merTools)
 library(tidyverse)
 library(patchwork)
 library(lme4)
+
 
 # source plotting configurations ------------------------------------------
 
@@ -160,15 +162,17 @@ mod1 <- lmer(climatic_debt ~ temp_change + (1 | bin),
              data = dat_trends)
 
 # create equal grid for inference (accounting for differential sampling in bins)
-new_data <- tibble(temp_change = seq(-3, 3, by = 0.1))  
+new_data <- tibble(temp_change = seq(-3, 3, by = 0.1), 
+                   bin = 0)  
 
 # estimate over this equal grid  
-dat_trends_pred <- predict(mod1, newdata = new_data,
-                           re.form = ~ 0,
-                           allow.new.levels = TRUE) %>%
+dat_trends_pred <- predictInterval(mod1,
+                                   newdata = new_data, 
+                                   which = "full", 
+                                   include.resid.var = FALSE) %>%
   as_tibble() %>% 
   add_column(new_data) %>% 
-  rename(predicted_debt = value)
+  rename(predicted_debt = fit)
 
 # summarize beta coefficient
 bootMer(mod1, fixef, nsim = 1000)
@@ -188,31 +192,34 @@ dat_mod <- dat_trends %>%
                       })
   )
 
-# summarize the beta coefficient
-dat_mod %>% 
-  mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)), 
-         beta_coef = map(lm_mod, fixef),
-         beta_coef = map_dbl(beta_coef, pluck(2)),
-         beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])), 
-         ci_low = beta_coef - 1.96 * beta_coef_sd, 
-         ci_high = beta_coef + 1.96 * beta_coef_sd) %>%
-  select(zone, short_term, beta_coef, ci_low, ci_high) %>% 
-  write_csv(here("data", 
-                 "beta_coefficient_per_latitude.csv"))
+## summarize the beta coefficient and save in csv
+# dat_mod %>% 
+#   mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)), 
+#          beta_coef = map(lm_mod, fixef),
+#          beta_coef = map_dbl(beta_coef, pluck(2)),
+#          beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])), 
+#          ci_low = beta_coef - 1.96 * beta_coef_sd, 
+#          ci_high = beta_coef + 1.96 * beta_coef_sd) %>%
+#   select(zone, short_term, beta_coef, ci_low, ci_high) %>% 
+#   write_csv(here("data", 
+#                  "beta_coefficient_per_latitude.csv"))
 
 
 new_data_lat <- dat_mod %>%
   mutate(new_data = if_else(short_term == "warming", 
-                            list(tibble(temp_change = seq(0, 3, by = 0.1))), 
-                            list(tibble(temp_change = seq(-3, 0, by = 0.1)))), 
-    predicted_debt = map2(.x = lm_mod,
-                          .y = new_data, 
-                          .f = ~ predict(.x,
-                                         newdata = .y,
-                                         re.form = ~ 0,
-                                         allow.new.levels = TRUE))) %>% 
+                            list(tibble(temp_change = seq(0, 3, by = 0.1), 
+                                        bin = 0)), 
+                            list(tibble(temp_change = seq(-3, 0, by = 0.1), 
+                                        bin = 0))), 
+         predicted_debt = map2(.x = lm_mod,
+                               .y = new_data, 
+                               .f = ~ predictInterval(.x,
+                                                      newdata = .y, 
+                                                      which = "full", 
+                                                      include.resid.var = FALSE))) %>% 
   select(-c(data, lm_mod)) %>% 
-  unnest(cols = c(predicted_debt, new_data))
+  unnest(cols = c(predicted_debt, new_data)) %>% 
+  rename(predicted_debt = fit)
 
 
 
@@ -238,6 +245,10 @@ plot_trends_total <- dat_trends_pred %>%
             colour = "grey40") +
   geom_hline(yintercept = 0 - abs(mean(dat_trends_pred$predicted_debt)), 
              colour = "grey40") +
+  geom_ribbon(aes(temp_change, ymin = lwr, ymax = upr), 
+              colour = alpha(colour_coral, 0.15),
+              fill = colour_coral,
+              alpha = 0.2) +
   geom_line(colour = colour_coral, 
               lwd = 1, 
               alpha = 0.8) +
@@ -270,6 +281,9 @@ plot_trends_lat <- new_data_lat %>%
   geom_vline(xintercept = 0, 
              colour = "grey70", 
              linetype = "dotted") +
+  geom_ribbon(aes(fill = zone, 
+                  group = interaction(short_term, zone),
+                  ymin = lwr, ymax = upr)) +
   geom_line(aes(colour = zone, 
                   group = interaction(short_term, zone)), 
               lwd = 1) + 
@@ -278,7 +292,7 @@ plot_trends_lat <- new_data_lat %>%
                                 colour_brown), 0.8)) +
   scale_fill_manual(values = alpha(c(colour_lavender,
                                       colour_green,
-                                      colour_brown), 0.3)) +
+                                      colour_brown), 0.2)) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-3, 3), 
