@@ -31,10 +31,6 @@ dat_debt <- read_rds(here("data",
 # world map outlines
 world <- map_data("world")
 
-
-# calculate range debt ----------------------------------------------------
-
-
 # prepare trend data
 dat_trends <- dat_debt %>% 
   mutate(short_term = if_else(temp_anom > lead(temp_anom),
@@ -43,6 +39,8 @@ dat_trends <- dat_debt %>%
          temp_change = temp_anom - lead(temp_anom, 
                                         default = mean(temp_anom))) %>% 
   drop_na(short_term)
+
+# calculate range debt ----------------------------------------------------
 
 
 # calculate distance to equator of each observation
