@@ -1,4 +1,5 @@
 library(here)
+library(merTools)
 library(tidyverse)
 library(lme4)
 
@@ -65,15 +66,16 @@ bootMer(mod1, fixef, nsim = 1000)
 
 
 # create equal grid for inference (accounting for differential sampling in bins)
-new_data <- tibble(temp_change = seq(-3, 3, by = 0.1))  
+new_data <- tibble(temp_change = seq(-3, 3, by = 0.2),
+                   bin = 0)  
 
 # estimate over this equal grid  
-dat_trends_pred <- predict(mod1, newdata = new_data,
-                           re.form = ~ 0,
-                           allow.new.levels = TRUE) %>%
+dat_trends_pred <- predictInterval(mod1,
+                                   newdata = new_data, 
+                                   which = "full") %>%
   as_tibble() %>% 
   add_column(new_data) %>% 
-  rename(predicted_debt = value)
+  rename(predicted_debt = fit)
 
 
 # in total
@@ -86,25 +88,31 @@ plot_trends_comp <- dat_trends_pred %>%
   geom_abline(intercept = -0.214, slope = 0.558, 
               colour = colour_coral, 
               alpha = 0.8, lwd = 1) +
-  geom_line(colour = colour_grey, 
-            lwd = 1) +
+  geom_ribbon(aes(temp_change, ymin = lwr, ymax = upr), 
+              fill = colour_grey,
+              alpha = 0.2) +
+  geom_abline(intercept = summary(mod1)$coefficients[1,1], 
+              slope = summary(mod1)$coefficients[2,1], 
+              colour = colour_grey, 
+              lwd = 1) +
   annotate(geom = "text", 
            x = -1.4, y = 0, 
            label = "Relative abundance", 
-           angle = 5, 
+           angle = 2, 
            colour = "grey20",
            size = 10/.pt) +
   annotate(geom = "text", 
            x = -1, y = -7.8, 
            label = "Occurrence only", 
            colour = "grey20",
-           angle = 25, 
+           angle = 15, 
            size = 10/.pt) +
-  labs(y = "Climatic Debt [°C]", 
+  labs(y = "Climatic Lag [°C/8ka]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(xlim = c(-2.5, 2.5))
 
+plot_trends_comp
 
 # save plot
 ggsave(plot_trends_comp, filename = here("figures", 
@@ -115,7 +123,8 @@ ggsave(plot_trends_comp, filename = here("figures",
 
 
 
-# latitudinal wise
+# latitudinal wise  -----------------------------------------------------
+
 # split data into latitudinal zones and then apply mixed effect models,
 # accounting for sampling
 dat_mod <- dat_trends %>% 
@@ -128,15 +137,57 @@ dat_mod <- dat_trends %>%
                       })
   )
 
-# summarize the beta coefficient
-dat_mod %>% 
-  mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)), 
-         beta_coef = map(lm_mod, fixef),
-         beta_coef = map_dbl(beta_coef, pluck(2)),
-         beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])), 
-         ci_low = beta_coef - 1.96 * beta_coef_sd, 
-         ci_high = beta_coef + 1.96 * beta_coef_sd) %>%
-  select(zone, short_term, beta_coef, ci_low, ci_high) %>% 
-  write_csv(here("data", 
-                 "beta_coefficient_per_latitude_occurrence.csv"))
+# predict to get trend lines
+new_data_lat <- dat_mod %>%
+  mutate(new_data = if_else(short_term == "warming", 
+                            list(tibble(temp_change = seq(0, 3, by = 0.2), 
+                                        bin = 0)), 
+                            list(tibble(temp_change = seq(-3, 0, by = 0.2), 
+                                        bin = 0))), 
+         predicted_debt = map2(.x = lm_mod,
+                               .y = new_data, 
+                               .f = ~ predictInterval(.x,
+                                                      newdata = .y, 
+                                                      which = "full"))) %>% 
+  select(-c(lm_mod)) %>% 
+  unnest(cols = c(predicted_debt, new_data)) %>% 
+  rename(predicted_debt = fit)
 
+# visualize
+plot_trends_lat <- new_data_lat %>% 
+  mutate(zone = factor(zone, levels = c("High",
+                                        "Mid",
+                                        "Low"))) %>% 
+  ggplot(aes(temp_change, predicted_debt)) +
+  geom_vline(xintercept = 0, 
+             colour = "grey70", 
+             linetype = "dotted") +
+  geom_ribbon(aes(fill = zone, 
+                  group = interaction(short_term, zone),
+                  ymin = lwr, ymax = upr)) +
+  geom_smooth(aes(colour = zone,
+                  group = interaction(short_term, zone)),
+              lwd = 1, 
+              se = FALSE) + 
+  scale_color_manual(name = "Latitude", 
+                     values = alpha(c(colour_lavender,
+                                      colour_brown, 
+                                      colour_green), 0.8)) +
+  scale_fill_manual(name = "Latitude", 
+                    values = alpha(c(colour_lavender,
+                                     colour_brown, 
+                                     colour_green), 0.1)) +
+  scale_y_continuous(breaks = seq(-12, 4, 4)) +
+  scale_x_continuous(breaks = seq(-2, 2, 2)) +
+  coord_cartesian(xlim = c(-2.5, 2.5)) +
+  labs(y = "Climatic Lag [°C/8ka]", 
+       x = expression(paste(Delta, "  Temperature [°C]"))) +
+  theme(legend.position = c(0.1, 0.85)) +
+  theme(axis.ticks = element_blank())
+
+# save plot
+ggsave(plot_trends_lat, filename = here("figures",
+                                        "supplemental",
+                                        "debt_trends_occurrence_latitude.png"), 
+       width = image_width, height = image_height, units = image_units, 
+       bg = "white", device = ragg::agg_png)
