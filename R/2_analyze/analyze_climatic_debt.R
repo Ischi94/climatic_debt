@@ -196,17 +196,29 @@ dat_mod <- dat_trends %>%
                       })
   )
 
-## summarize the beta coefficient and save in csv
-# dat_mod %>% 
-#   mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)), 
+# # summarize the beta coefficient and save in csv
+# dat_mod %>%
+#   mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)),
 #          beta_coef = map(lm_mod, fixef),
 #          beta_coef = map_dbl(beta_coef, pluck(2)),
-#          beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])), 
-#          ci_low = beta_coef - 1.96 * beta_coef_sd, 
+#          beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])),
+#          ci_low = beta_coef - 1.96 * beta_coef_sd,
 #          ci_high = beta_coef + 1.96 * beta_coef_sd) %>%
-#   select(zone, short_term, beta_coef, ci_low, ci_high) %>% 
-#   write_csv(here("data", 
+#   select(zone, short_term, beta_coef, ci_low, ci_high) %>%
+#   write_csv(here("data",
 #                  "beta_coefficient_per_latitude.csv"))
+# 
+# # same for the intercept
+# dat_mod %>%
+#   mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)),
+#          intercept = map(lm_mod, fixef),
+#          intercept = map_dbl(intercept, pluck(1)),
+#          intercept_sd = map_dbl(fix_eff, ~ sd(.x$t[, 1])),
+#          ci_low = intercept - 1.96 * intercept_sd,
+#          ci_high = intercept + 1.96 * intercept_sd) %>%
+#   select(zone, short_term, intercept, ci_low, ci_high) %>%
+#   write_csv(here("data",
+#                  "intercept_per_latitude.csv"))
 
 
 new_data_lat <- dat_mod %>%
