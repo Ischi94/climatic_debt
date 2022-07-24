@@ -278,7 +278,7 @@ plot_trends_total <- dat_trends_pred %>%
            label = "Equilibrium", 
            colour = "grey20",
            size = 10/.pt) +
-  labs(y = "Climatic Lag [°C/8ka]", 
+  labs(y = "Climatic Lag [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
@@ -312,7 +312,7 @@ plot_trends_lat <- new_data_lat %>%
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-3, 3), 
                   xlim = c(-2.5, 2.5)) +
-  labs(y = "Climatic Lag [°C/8ka]", 
+  labs(y = "Climatic Lag [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   theme(legend.position = "none") +
   theme(axis.ticks = element_blank())
