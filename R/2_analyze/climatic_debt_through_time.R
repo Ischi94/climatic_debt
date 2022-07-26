@@ -168,6 +168,26 @@ dat_rsq %>%
   summarise(mean_cl_normal(value))
 
 
+
+# marginal predictions ----------------------------------------------------
+
+
+# marginal predictions for best performing legacy model (lag2)
+dat_marg_pred <- lm(climatic_debt ~ st:lt2, data = dat_debt_trends) %>% 
+  predict(., interval = "confidence") %>% 
+  as_tibble() %>% 
+  bind_cols(dat_debt_trends %>% 
+              drop_na(st, lt2)) %>% 
+  rename(pred_lag = fit) %>% 
+  mutate(lt = if_else(lt2 >= 0, 
+                      "Warming", 
+                      "Cooling"), 
+         zone = factor(zone, levels = c("High", 
+                                        "Mid", 
+                                        "Low"))) 
+  
+
+
 # climatic debt through time ----------------------------------------------
 
 # calculate average trend and confidence interval via bootstrapping
@@ -271,7 +291,31 @@ plot_mod_comp <- dat_mod_comp %>%
   coord_cartesian(clip = "off")
 
 
-
+# marginal prediction
+plot_marg_pred <- dat_marg_pred %>% 
+  ggplot(aes(st, pred_lag)) +
+  geom_hline(yintercept = 0, colour = "grey80", 
+             linetype = "dotted") +
+  geom_vline(xintercept = 0, colour = "grey80", 
+             linetype = "dotted") +
+  geom_smooth(method = "lm", se = FALSE, 
+              colour = alpha(colour_coral, 0.8)) +
+  geom_linerange(aes(ymin = lwr, ymax = upr), 
+                 colour = "grey30") +
+  geom_point(aes(fill = zone),
+             shape = 21,
+             colour = "grey30", 
+             size = 1.5) +
+  facet_wrap(~ lt) +
+  labs(x = expression(paste(Delta, "  Temperature [°C]")), 
+       y = "Estimated Climatic Lag [°C]") +
+  scale_fill_manual(name = "Latitude", 
+                    values = c(colour_lavender,
+                               colour_brown,
+                               colour_green)) +
+  theme(legend.position = c(0.37, 0.2),
+        panel.border = element_rect(fill = NA,
+                                    colour = "grey90"))
 
 # combine and save --------------------------------------------------------
 
@@ -294,5 +338,12 @@ plot_final <- plot_debt_time + plot_temp +  plot_mod_comp +
 # save plot_final
 ggsave(plot_final, filename = here("figures", 
                                    "fig4_comparison.png"), 
+       width = image_width, height = image_height, units = image_units, 
+       bg = "white", device = ragg::agg_png)
+
+# save marginal prediction plot
+ggsave(plot_marg_pred, filename = here("figures",
+                                       "supplemental",
+                                       "legacy_trends.png"), 
        width = image_width, height = image_height, units = image_units, 
        bg = "white", device = ragg::agg_png)
