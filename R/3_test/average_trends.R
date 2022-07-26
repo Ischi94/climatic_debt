@@ -116,11 +116,25 @@ plot_lag <- dat_lag_time %>%
   theme(legend.position = c(0.8, 0.8))
   
 
+
+# number of assemblages --------------------------------------
+
+# plot number of assemblages through time
+plot_nr <- dat_debt %>% 
+  ggplot(aes(bin)) +
+  geom_bar() +
+  scale_x_reverse() +
+  scale_y_continuous(trans = scales::pseudo_log_trans(), 
+                     breaks = c(1, 10, 100, 1000)) +
+  labs(y = "Number of Assemblages", 
+       x = "Age [ka]")
+
+
 # save visualisations -----------------------------------------------------
 
 ggsave(plot_temp, filename = here("figures",
-                                 "supplemental",
-                                 "average_temperature.png"), 
+                                  "supplemental",
+                                  "average_temperature.png"), 
        width = image_width, height = image_height, units = image_units, 
        bg = "white", device = ragg::agg_png)
 
@@ -129,3 +143,10 @@ ggsave(plot_lag, filename = here("figures",
                                  "average_lag.png"), 
        width = image_width, height = image_height, units = image_units, 
        bg = "white", device = ragg::agg_png)
+
+ggsave(plot_nr, filename = here("figures",
+                                "supplemental",
+                                "number_of_assemblages.png"), 
+       width = image_width, height = image_height, units = image_units, 
+       bg = "white", device = ragg::agg_png)
+
