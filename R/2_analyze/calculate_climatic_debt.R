@@ -1,6 +1,12 @@
 library(here)
 library(tidyverse)
 library(rioja)
+library(patchwork)
+
+
+# source plotting configurations ------------------------------------------
+
+source(here("R", "config_file.R"))
 
 
 # load data ---------------------------------------------------------------
@@ -64,6 +70,49 @@ mod_cv <- crossval(mod_wapls, cv.method = "loo")
 nr_comp <- performance(mod_cv)$crossval[, 1] %>% 
   which.min(.)
 
+# visualize decision
+# root mean squared error
+plot_rmse <- tibble(model_rmse = performance(mod_cv)$object[, 1],
+                    crossval_rmse = performance(mod_cv)$crossval[, 1],
+                    nr_components = 1:5) %>% 
+  pivot_longer(cols = contains("rmse")) %>% 
+ ggplot(aes(nr_components, value, colour = name)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Number of Components", 
+       y = "RMSE") +
+  scale_color_manual(name = NULL, 
+                     values = c(colour_coral, "grey20"), 
+                     labels = c("Cross-validated", "Model")) +
+  theme(legend.position = c(0.8, 0.8))
+
+# r-squared
+plot_rsq <- tibble(model_rsq = performance(mod_cv)$object[, 2],
+                   crossval_rsq = performance(mod_cv)$crossval[, 2],
+                   nr_components = 1:5) %>% 
+  pivot_longer(cols = contains("rsq")) %>% 
+  ggplot(aes(nr_components, value, fill = name)) +
+  geom_hline(yintercept = 0.9112843, linetype = "dotted", 
+             colour = "grey70") +
+  geom_col(position = "dodge") +
+  coord_cartesian(ylim = c(0.88, 0.92)) +
+  labs(x = "Number of Components", 
+       y = "R-squared") +
+  scale_fill_manual(name = NULL, 
+                     values = alpha(c(colour_coral, "grey20"), 0.7), 
+                     labels = c("Cross-validated", "Model")) +
+  theme(legend.position = "none")
+
+# combine 
+plot_final <- plot_rmse + plot_rsq +
+  plot_annotation(tag_levels = "a") 
+
+# save
+ggsave(plot_final, filename = here("figures",
+                                   "supplemental",
+                                   "wapls_summary.png"), 
+         width = image_width, height = image_height, units = image_units, 
+         bg = "white", device = ragg::agg_png)
 
 
 # predict community temperature index -------------------------------------
@@ -116,9 +165,7 @@ dat_debt %>%
   geom_line(aes(group = core_uniq, colour = dist_equ),
             alpha = 0.4) +
   geom_smooth(colour = "coral3") +
-  scale_x_reverse() +
-  theme_minimal()
-
+  scale_x_reverse() 
 
 
 
