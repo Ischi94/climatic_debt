@@ -144,7 +144,7 @@ plot_lag_time <- dat_lag_time %>%
   annotate(geom = "text", 
            x = 4.8, y = 5.1, 
            label = "No response", 
-           angle = 26, 
+           angle = 23, 
            colour = "grey20",
            size = 10/.pt) +
   annotate(geom = "text", 
