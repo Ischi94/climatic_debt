@@ -117,6 +117,49 @@ plot_lag <- dat_lag_time %>%
   
 
 
+# unadjusted lag by climate change relationship ---------------------------
+
+plot_lag_time <- dat_lag_time %>% 
+  ggplot(aes(temp_rate, lag)) +
+  geom_point(aes(colour = zone)) +
+  geom_vline(xintercept = 0, 
+             colour = "grey70", 
+             linetype = "dotted") +
+  geom_line(data = tibble(lag = seq(-4 - abs(mean(dat_lag_time$lag)),
+                                    6 - abs(mean(dat_lag_time$lag)),
+                                    length.out = 20),
+                          temp_rate = seq(-4, 6,
+                                          length.out = 20)),
+            colour = "grey40") +
+  geom_hline(yintercept = 0 - abs(mean(dat_lag_time$lag)), 
+             colour = "grey40") +
+  scale_color_manual(values = alpha(c(colour_lavender,
+                                      colour_green,
+                                      colour_brown), 0.8), 
+                     name = "Latitude") +
+  geom_smooth(method = "lm", 
+              colour = alpha(colour_coral, 0.8), 
+              fill = colour_coral, 
+              alpha = 0.2) +
+  annotate(geom = "text", 
+           x = 4.8, y = 5.1, 
+           label = "No response", 
+           angle = 26, 
+           colour = "grey20",
+           size = 10/.pt) +
+  annotate(geom = "text", 
+           x = -3.7, y = 0.22, 
+           label = "Equilibrium", 
+           colour = "grey20",
+           size = 10/.pt) +
+  labs(y = "Climatic Lag [°C]", 
+       x = expression(paste(Delta, "  Temperature [°C]"))) +
+  scale_y_continuous(breaks = seq(-4, 6, 2)) +
+  scale_x_continuous(breaks = seq(-4, 6, 2)) +
+  theme(axis.ticks = element_blank(), 
+        legend.position = c(0.9, 0.2))
+
+
 # number of assemblages --------------------------------------
 
 # plot number of assemblages through time
@@ -143,6 +186,13 @@ ggsave(plot_lag, filename = here("figures",
                                  "average_lag.png"), 
        width = image_width, height = image_height, units = image_units, 
        bg = "white", device = ragg::agg_png)
+
+ggsave(plot_lag_time, filename = here("figures",
+                                      "supplemental",
+                                      "empirical_lag.png"), 
+       width = image_width, height = image_height, units = image_units, 
+       bg = "white", device = ragg::agg_png)
+
 
 ggsave(plot_nr, filename = here("figures",
                                 "supplemental",
