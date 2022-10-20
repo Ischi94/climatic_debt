@@ -68,6 +68,12 @@ dat_debt_trends <- dat_debt %>%
               select(-c(temp_surface:cti, abs_lat)))
 
 
+# check for temporal autocorrelation in global temperature
+dat_debt_trends %>% 
+  distinct(bin, st) %>% 
+  drop_na(st) %>% 
+  pull(st) %>% 
+  acf()
 
 # simple linear models
 
