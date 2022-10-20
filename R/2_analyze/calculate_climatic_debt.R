@@ -29,8 +29,7 @@ dat_mean_temp <- read_csv(here("data",
 # fit WAPLS -------------------------------------
 
 
-# select training data for WA-PLS
-# select bins with average temperature based on quantiles
+# shape training data for WA-PLS
 dat_temp_quant <- dat_mean_temp %>% 
   summarize(temp_quant = quantile(temp_ym_0m)) %>% 
   pull(temp_quant) 
@@ -43,7 +42,7 @@ dat_train <- dat_spp %>%
 
 
 # get the species data in the right format
-dat_train_spec <- dat_train %>% 
+dat_train_spec <- dat_spp %>% 
   pivot_wider(id_cols = c(core_uniq, bin), 
               names_from = species, 
               values_from = rel_abund, 
@@ -55,13 +54,13 @@ dat_train_spec <- dat_train %>%
   
 
 # same with temperature data
-dat_train_temp <- dat_train %>% 
+dat_train_temp <- dat_spp %>% 
   distinct(core_uniq, bin, temp_surface, temp_depth) %>% 
   arrange(bin, core_uniq) %>% 
   pull(temp_surface) 
 
 # fit the weighted average partial least squares model (WAPLS)
-mod_wapls <- WAPLS(dat_train_spec, dat_train_temp)
+mod_wapls <- WAPLS(dat_train_spec, dat_train_temp, npls = 7)
 
 # cross-validate model
 mod_cv <- crossval(mod_wapls, cv.method = "loo")
@@ -74,7 +73,7 @@ nr_comp <- performance(mod_cv)$crossval[, 1] %>%
 # root mean squared error
 plot_rmse <- tibble(model_rmse = performance(mod_cv)$object[, 1],
                     crossval_rmse = performance(mod_cv)$crossval[, 1],
-                    nr_components = 1:5) %>% 
+                    nr_components = 1:7) %>% 
   pivot_longer(cols = contains("rmse")) %>% 
  ggplot(aes(nr_components, value, colour = name)) +
   geom_line() +
@@ -89,10 +88,10 @@ plot_rmse <- tibble(model_rmse = performance(mod_cv)$object[, 1],
 # r-squared
 plot_rsq <- tibble(model_rsq = performance(mod_cv)$object[, 2],
                    crossval_rsq = performance(mod_cv)$crossval[, 2],
-                   nr_components = 1:5) %>% 
+                   nr_components = 1:7) %>% 
   pivot_longer(cols = contains("rsq")) %>% 
   ggplot(aes(nr_components, value, fill = name)) +
-  geom_hline(yintercept = 0.9112843, linetype = "dotted", 
+  geom_hline(yintercept = 0.9055783, linetype = "dotted", 
              colour = "grey70") +
   geom_col(position = "dodge") +
   coord_cartesian(ylim = c(0.88, 0.92)) +
@@ -153,54 +152,5 @@ dat_debt <- dat_spp %>%
 write_rds(dat_debt, 
           here("data", 
                "cleaned_debt_wapls.rds"))
-
-
-# visualise over time -----------------------------------------------------
-
-
-# quick plot
-dat_debt %>%
-  mutate(dist_equ = abs(pal.lat)) %>%
-  ggplot(aes(bin, climatic_debt)) +
-  geom_line(aes(group = core_uniq, colour = dist_equ),
-            alpha = 0.4) +
-  geom_smooth(colour = "coral3") +
-  scale_x_reverse() 
-
-
-
-
-# based on cti ------------------------------------------------------------
-
-
-
-# # convert cell numbers to coordinates
-# rEmpt <- raster(ncols=288, nrows=144, xmn=-180, xmx=180, ymn=-90, ymx=90)
-# dat_spp_surf[,c('centroid_long', 'centroid_lat')] <- xyFromCell(rEmpt, dat_spp_surf$cell)
-# 
-# # calculate climate debt per cell and per bin
-# dat_debt <- dat_spp_surf %>% 
-#   group_by(species) %>%
-#   summarise(sti = mean(temp_ym)) %>% 
-#   full_join(dat_spp_surf) %>% 
-#   arrange(cell) %>% 
-#   group_by(bin, cell, centroid_long, centroid_lat) %>% 
-#   summarise(cti = mean(sti), 
-#             act_temp = mean(temp_ym)) %>% 
-#   ungroup() %>% 
-#   select(cell, centroid_long, centroid_lat, bin, act_temp, cti) %>% 
-#   mutate(temp_lag = act_temp - cti, 
-#          cell = as.factor(cell))
-# 
-# 
-# # save data
-# write_rds(dat_debt, 
-#           here("data", 
-#                "cleaned_debt_raster.rds"))
-
-
-
-
-
 
 

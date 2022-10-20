@@ -1,8 +1,6 @@
 library(here)
-library(merTools)
 library(tidyverse)
 library(patchwork)
-library(lme4)
 
 
 # source plotting configurations ------------------------------------------
@@ -45,26 +43,27 @@ dat_trends <- dat_debt %>%
 
 
 # fit overall model 
-mod1 <- lmer(climatic_debt ~ temp_change + (1 | bin),
-             data = dat_trends)
+mod1 <- lm(climatic_debt ~ temp_change,
+           data = dat_trends)
 
 # create equal grid for inference (accounting for differential sampling in bins)
 new_data <- tibble(temp_change = seq(-3, 3, by = 0.1), 
                    bin = 0)  
 
 # estimate over this equal grid  
-dat_trends_pred <- predictInterval(mod1,
-                                   newdata = new_data, 
-                                   which = "full", 
-                                   include.resid.var = FALSE) %>%
+dat_trends_pred <- predict(mod1,
+                           newdata = new_data,
+                           interval = "confidence") %>%
   as_tibble() %>% 
   add_column(new_data) %>% 
   rename(predicted_debt = fit)
 
 # summarize beta coefficient
-bootMer(mod1, fixef, nsim = 1000)
+coef(mod1)[2]
+confint(mod1)[2, ]
 
-  
+
+confint(mod1) %>% pluck(4)
 
 # latitudinal wise
 # split data into latitudinal zones and then apply mixed effect models,
@@ -74,34 +73,32 @@ dat_mod <- dat_trends %>%
   nest() %>% 
   mutate(lm_mod = map(.x = data,
                       .f = function(df) {
-                        lmer(climatic_debt ~ temp_change + (1 | bin),
-                             data = df)
+                        lm(climatic_debt ~ temp_change,
+                           data = df)
                       })
   )
 
-# # summarize the beta coefficient and save in csv
-# dat_mod %>%
-#   mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)),
-#          beta_coef = map(lm_mod, fixef),
-#          beta_coef = map_dbl(beta_coef, pluck(2)),
-#          beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])),
-#          ci_low = beta_coef - 1.96 * beta_coef_sd,
-#          ci_high = beta_coef + 1.96 * beta_coef_sd) %>%
-#   select(zone, short_term, beta_coef, ci_low, ci_high) %>%
-#   write_csv(here("data",
-#                  "beta_coefficient_per_latitude.csv"))
-# 
-# # same for the intercept
-# dat_mod %>%
-#   mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)),
-#          intercept = map(lm_mod, fixef),
-#          intercept = map_dbl(intercept, pluck(1)),
-#          intercept_sd = map_dbl(fix_eff, ~ sd(.x$t[, 1])),
-#          ci_low = intercept - 1.96 * intercept_sd,
-#          ci_high = intercept + 1.96 * intercept_sd) %>%
-#   select(zone, short_term, intercept, ci_low, ci_high) %>%
-#   write_csv(here("data",
-#                  "intercept_per_latitude.csv"))
+# summarize the beta coefficient and save in csv
+dat_mod %>%
+  mutate(beta_coef = map_dbl(lm_mod, 
+                             ~ coef(.x) %>% pluck(2)), 
+         ci = map(lm_mod, confint),
+         ci_low = map_dbl(ci, pluck, 2),  
+         ci_high = map_dbl(ci, pluck, 4)) %>% 
+  select(zone, short_term, beta_coef, ci_low, ci_high) %>%
+  write_csv(here("data",
+                 "beta_coefficient_per_latitude.csv"))
+
+# same for the intercept
+dat_mod %>%
+  mutate(beta_coef = map_dbl(lm_mod, 
+                             ~ coef(.x) %>% pluck(1)), 
+         ci = map(lm_mod, confint),
+         ci_low = map_dbl(ci, pluck, 1),  
+         ci_high = map_dbl(ci, pluck, 3)) %>% 
+  select(zone, short_term, beta_coef, ci_low, ci_high) %>%
+  write_csv(here("data",
+                 "beta_coefficient_per_latitude.csv"))
 
 
 new_data_lat <- dat_mod %>%
@@ -112,10 +109,10 @@ new_data_lat <- dat_mod %>%
                                         bin = 0))), 
          predicted_debt = map2(.x = lm_mod,
                                .y = new_data, 
-                               .f = ~ predictInterval(.x,
-                                                      newdata = .y, 
-                                                      which = "full", 
-                                                      include.resid.var = FALSE))) %>% 
+                               .f = ~ predict(.x,
+                                              newdata = .y,
+                                              interval = "confidence") %>% 
+                                 as_tibble)) %>% 
   select(-c(data, lm_mod)) %>% 
   unnest(cols = c(predicted_debt, new_data)) %>% 
   rename(predicted_debt = fit)
@@ -148,8 +145,8 @@ plot_trends_total <- dat_trends_pred %>%
               fill = colour_coral,
               alpha = 0.2) +
   geom_line(colour = colour_coral, 
-              lwd = 1, 
-              alpha = 0.8) +
+            lwd = 1, 
+            alpha = 0.8) +
   annotate(geom = "text", 
            x = 1.4, y = 1.7, 
            label = "No response", 
@@ -183,14 +180,14 @@ plot_trends_lat <- new_data_lat %>%
                   group = interaction(short_term, zone),
                   ymin = lwr, ymax = upr)) +
   geom_line(aes(colour = zone, 
-                  group = interaction(short_term, zone)), 
-              lwd = 1) + 
+                group = interaction(short_term, zone)), 
+            lwd = 1) + 
   scale_color_manual(values = alpha(c(colour_lavender,
-                                colour_green,
-                                colour_brown), 0.8)) +
-  scale_fill_manual(values = alpha(c(colour_lavender,
                                       colour_green,
-                                      colour_brown), 0.2)) +
+                                      colour_brown), 0.8)) +
+  scale_fill_manual(values = alpha(c(colour_lavender,
+                                     colour_green,
+                                     colour_brown), 0.2)) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-3, 3), 
@@ -262,4 +259,3 @@ ggsave(plot_final, filename = here("figures",
 
 
 
-  
