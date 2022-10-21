@@ -1,7 +1,5 @@
 library(here)
-library(merTools)
 library(tidyverse)
-library(lme4)
 
 
 # source plotting configurations ------------------------------------------
@@ -58,11 +56,8 @@ dat_trends <- dat_debt_surf %>%
   drop_na(short_term)
 
 # fit overall model 
-mod1 <- lmer(temp_debt ~ temp_change + (1 | bin),
-             data = dat_trends)
-
-# summarize beta coefficient
-bootMer(mod1, fixef, nsim = 1000)
+mod1 <- lm(temp_debt ~ temp_change,
+           data = dat_trends)
 
 
 # create equal grid for inference (accounting for differential sampling in bins)
@@ -70,9 +65,9 @@ new_data <- tibble(temp_change = seq(-3, 3, by = 0.2),
                    bin = 0)  
 
 # estimate over this equal grid  
-dat_trends_pred <- predictInterval(mod1,
-                                   newdata = new_data, 
-                                   which = "full") %>%
+dat_trends_pred <- predict(mod1,
+                           newdata = new_data,
+                           interval = "prediction") %>%
   as_tibble() %>% 
   add_column(new_data) %>% 
   rename(predicted_debt = fit)
@@ -107,7 +102,7 @@ plot_trends_comp <- dat_trends_pred %>%
            colour = "grey20",
            angle = 15, 
            size = 10/.pt) +
-  labs(y = "Climatic Lag [°C]", 
+  labs(y = "Climatic Mismatch [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(xlim = c(-2.5, 2.5))
@@ -132,7 +127,7 @@ dat_mod <- dat_trends %>%
   nest() %>% 
   mutate(lm_mod = map(.x = data,
                       .f = function(df) {
-                        lmer(temp_debt ~ temp_change + (1 | bin),
+                        lm(temp_debt ~ temp_change,
                              data = df)
                       })
   )
@@ -146,9 +141,10 @@ new_data_lat <- dat_mod %>%
                                         bin = 0))), 
          predicted_debt = map2(.x = lm_mod,
                                .y = new_data, 
-                               .f = ~ predictInterval(.x,
-                                                      newdata = .y, 
-                                                      which = "full"))) %>% 
+                               .f = ~ predict(.x,
+                                              newdata = .y,
+                                              interval = "prediction") %>% 
+                                 as_tibble())) %>% 
   select(-c(lm_mod)) %>% 
   unnest(cols = c(predicted_debt, new_data)) %>% 
   rename(predicted_debt = fit)
@@ -180,7 +176,7 @@ plot_trends_lat <- new_data_lat %>%
   scale_y_continuous(breaks = seq(-12, 4, 4)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(xlim = c(-2.5, 2.5)) +
-  labs(y = "Climatic Lag [°C]", 
+  labs(y = "Climatic Mismatch [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   theme(legend.position = c(0.1, 0.85)) +
   theme(axis.ticks = element_blank())
@@ -191,3 +187,5 @@ ggsave(plot_trends_lat, filename = here("figures",
                                         "debt_trends_occurrence_latitude.png"), 
        width = image_width, height = image_height, units = image_units, 
        bg = "white", device = ragg::agg_png)
+
+
