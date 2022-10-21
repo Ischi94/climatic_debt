@@ -187,12 +187,6 @@ ggsave(plot_lag, filename = here("figures",
        width = image_width, height = image_height, units = image_units, 
        bg = "white", device = ragg::agg_png)
 
-ggsave(plot_lag_time, filename = here("figures",
-                                      "supplemental",
-                                      "empirical_lag.png"), 
-       width = image_width, height = image_height, units = image_units, 
-       bg = "white", device = ragg::agg_png)
-
 
 ggsave(plot_nr, filename = here("figures",
                                 "supplemental",
