@@ -97,7 +97,7 @@ dat_mod %>%
          ci_high = map_dbl(ci, pluck, 3)) %>% 
   select(zone, short_term, beta_coef, ci_low, ci_high) %>%
   write_csv(here("data",
-                 "beta_coefficient_per_latitude.csv"))
+                 "beta_intercept_per_latitude.csv"))
 
 
 new_data_lat <- dat_mod %>%
