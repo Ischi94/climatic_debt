@@ -317,7 +317,7 @@ plot_marg_pred <- dat_marg_pred %>%
              size = 1.5) +
   facet_wrap(~ lt) +
   labs(x = expression(paste(Delta, "  Temperature [°C]")), 
-       y = "Estimated Climatic Lag [°C]") +
+       y = "Estimated Climatic Mismatch [°C]") +
   scale_fill_manual(name = "Latitude", 
                     values = c(colour_lavender,
                                colour_brown,
