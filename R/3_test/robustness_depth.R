@@ -1,7 +1,7 @@
 library(here)
 library(tidyverse)
 library(rioja)
-library(lme4)
+
 
 # load data ---------------------------------------------------------------
 
@@ -20,24 +20,8 @@ dat_mean_temp <- read_csv(here("data",
 
 
 
-# fit WAPLS -------------------------------------
-
-
-# select training data for WA-PLS
-# select bins with average temperature based on quantiles
-dat_temp_quant <- dat_mean_temp %>% 
-  summarize(temp_quant = quantile(temp_ym_0m)) %>% 
-  pull(temp_quant) 
-
-dat_bins <- dat_mean_temp %>% 
-  filter(between(temp_ym_0m, dat_temp_quant[2], dat_temp_quant[4]))
-
-dat_train <- dat_spp %>% 
-  filter(bin %in% unique(dat_bins$bin))
-
-
 # get the species data in the right format
-dat_train_spec <- dat_train %>% 
+dat_train_spec <- dat_spp %>% 
   pivot_wider(id_cols = c(core_uniq, bin), 
               names_from = species, 
               values_from = rel_abund, 
@@ -49,13 +33,13 @@ dat_train_spec <- dat_train %>%
 
 
 # same with temperature data
-dat_train_temp <- dat_train %>% 
+dat_train_temp <- dat_spp %>% 
   distinct(core_uniq, bin, temp_surface, temp_depth) %>% 
   arrange(bin, core_uniq) %>% 
   pull(temp_depth) 
 
 # fit the weighted average partial least squares model (WAPLS)
-mod_wapls <- WAPLS(dat_train_spec, dat_train_temp)
+mod_wapls <- WAPLS(dat_train_spec, dat_train_temp, npls = 7)
 
 # cross-validate model
 mod_cv <- crossval(mod_wapls, cv.method = "loo")
@@ -83,7 +67,7 @@ dat_pred <- dat_spp_full %>%
   select(-c(core_uniq, bin)) %>% 
   as.data.frame() %>% 
   predict(mod_wapls, newdata = ., npls = nr_comp,
-          nboot = 1000) %>% 
+          nboot = 100) %>% 
   pluck("fit") %>% 
   .[, nr_comp] %>% 
   as_tibble() %>% 
@@ -129,11 +113,8 @@ dat_trends <- dat_debt %>%
   drop_na(short_term)
 
 # fit overall model 
-mod1 <- lmer(climatic_debt ~ temp_change + (1 | bin),
-             data = dat_trends)
-
-# summarize beta coefficient
-bootMer(mod1, fixef, nsim = 1000)
+mod1 <- lm(climatic_debt ~ temp_change, 
+           data = dat_trends)
 
 
 
@@ -145,19 +126,18 @@ dat_mod <- dat_trends %>%
   nest() %>% 
   mutate(lm_mod = map(.x = data,
                       .f = function(df) {
-                        lmer(climatic_debt ~ temp_change + (1 | bin),
-                             data = df)
+                        lm(climatic_debt ~ temp_change,
+                           data = df)
                       })
   )
 
 # summarize the beta coefficient
-dat_mod %>% 
-  mutate(fix_eff = map(lm_mod, ~ bootMer(.x, fixef, nsim = 1000)), 
-         beta_coef = map(lm_mod, fixef),
-         beta_coef = map_dbl(beta_coef, pluck(2)),
-         beta_coef_sd = map_dbl(fix_eff, ~ sd(.x$t[, 2])), 
-         ci_low = beta_coef - 1.96 * beta_coef_sd, 
-         ci_high = beta_coef + 1.96 * beta_coef_sd) %>%
+dat_mod %>%
+  mutate(beta_coef = map_dbl(lm_mod, 
+                             ~ coef(.x) %>% pluck(2)), 
+         ci = map(lm_mod, confint),
+         ci_low = map_dbl(ci, pluck, 2),  
+         ci_high = map_dbl(ci, pluck, 4)) %>% 
   select(zone, short_term, beta_coef, ci_low, ci_high) %>% 
   write_csv(here("data", 
                  "beta_coefficient_per_latitude_by_debth.csv"))
