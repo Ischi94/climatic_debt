@@ -268,7 +268,7 @@ plot_debt_time <- dat_debt_boot %>%
            size = 10/.pt, 
            label.size = 0) +
   labs(x = "Age [ka]", 
-       y = "Average Global\nClimatic Lag [°C/8ka]") +
+       y = "Average Global\nClimatic Mismatch [°C/8ka]") +
   coord_cartesian(ylim = c(-4, 4.5)) +
   scale_y_continuous(breaks = seq(-2, 2, by = 2)) +
   scale_x_reverse() +
