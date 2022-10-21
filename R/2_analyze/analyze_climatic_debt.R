@@ -63,7 +63,6 @@ coef(mod1)[2]
 confint(mod1)[2, ]
 
 
-confint(mod1) %>% pluck(4)
 
 # latitudinal wise
 # split data into latitudinal zones and then apply mixed effect models,
@@ -133,32 +132,48 @@ plot_trends_total <- dat_trends_pred %>%
   geom_vline(xintercept = 0, 
              colour = "grey70", 
              linetype = "dotted") +
-  geom_line(data = tibble(predicted_debt = seq(-3 - abs(mean(dat_trends_pred$predicted_debt)),
-                                               3 - abs(mean(dat_trends_pred$predicted_debt)),
+  geom_line(data = tibble(predicted_debt = seq(-3, 3,
                                                length.out = 20),
                           temp_change = seq(-3, 3,
                                             length.out = 20)),
             colour = "grey40") +
-  geom_hline(yintercept = 0 - abs(mean(dat_trends_pred$predicted_debt)), 
+  geom_hline(yintercept = 0, 
              colour = "grey40") +
   geom_ribbon(aes(temp_change, ymin = lwr, ymax = upr), 
               fill = colour_coral,
               alpha = 0.2) +
+  geom_smooth(alpha = 0, colour = "grey50", 
+              linetype = "dashed", 
+              size = 0.6,
+              data = dat_trends %>% 
+                rename(predicted_debt = climatic_debt)) +
   geom_line(colour = colour_coral, 
             lwd = 1, 
             alpha = 0.8) +
   annotate(geom = "text", 
-           x = 1.4, y = 1.7, 
+           x = 1.9, y = 2.25, 
            label = "No response", 
            angle = 30, 
            colour = "grey20",
            size = 10/.pt) +
   annotate(geom = "text", 
-           x = -1.4, y = 0.17, 
+           x = -1.4, y = 0.25, 
            label = "Equilibrium", 
            colour = "grey20",
            size = 10/.pt) +
-  labs(y = "Climatic Lag [°C]", 
+  annotate(geom = "curve",
+           x = -0.25, xend = 0.8,
+           y = -0.9, yend = -2.6,
+           curvature = 0.3,
+           arrow = arrow(length = unit(0.05, "inch"),
+                         ends = "first"),
+           colour = colour_grey, lwd = 0.3) +
+  annotate(geom = "text",
+           x = 1.27, y = -2.6,
+           label = "GAM",
+           colour = colour_grey,
+           size = 10/.pt) +
+  labs(y = "Climatic Mismatch [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
@@ -184,15 +199,15 @@ plot_trends_lat <- new_data_lat %>%
             lwd = 1) + 
   scale_color_manual(values = alpha(c(colour_lavender,
                                       colour_green,
-                                      colour_brown), 0.8)) +
+                                      colour_brown), 0.6)) +
   scale_fill_manual(values = alpha(c(colour_lavender,
                                      colour_green,
-                                     colour_brown), 0.2)) +
+                                     colour_brown), 0.15)) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-3, 3), 
                   xlim = c(-2.5, 2.5)) +
-  labs(y = "Climatic Lag [°C]", 
+  labs(y = "Climatic Mismatch [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   theme(legend.position = "none") +
   theme(axis.ticks = element_blank())
@@ -231,7 +246,7 @@ plot_map <- dat_debt %>%
   scale_fill_manual(name = "Latitude", 
                     values = alpha(c(colour_lavender,
                                      colour_brown, 
-                                     colour_green), 0.5)) +
+                                     colour_green), 0.4)) +
   coord_map(projection = "mollweide") +
   guides(fill = guide_legend(override.aes = list(alpha = 1))) +
   theme(legend.position = 'top', 
