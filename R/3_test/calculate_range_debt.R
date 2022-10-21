@@ -247,7 +247,8 @@ plot_velocity
 
 # save range velocity plot
 ggsave(plot_velocity, filename = here("figures", 
-                                      "fig3_range_debt.png"), 
+                                      "supplemental",
+                                      "range_debt.png"), 
        width = image_width, height = image_height,
        units = image_units, 
        bg = "white", device = ragg::agg_png)
