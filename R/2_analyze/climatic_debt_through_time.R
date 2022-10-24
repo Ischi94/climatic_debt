@@ -268,8 +268,8 @@ plot_debt_time <- dat_debt_boot %>%
            size = 10/.pt, 
            label.size = 0) +
   labs(x = "Age [ka]", 
-       y = "Average Global\nClimatic Lag [°C/8ka]") +
-  coord_cartesian(ylim = c(-3, 3)) +
+       y = "Average Global\nClimatic Mismatch [°C/8ka]") +
+  coord_cartesian(ylim = c(-4, 4.5)) +
   scale_y_continuous(breaks = seq(-2, 2, by = 2)) +
   scale_x_reverse() +
   theme()
@@ -299,13 +299,16 @@ plot_mod_comp <- dat_mod_comp %>%
 
 # marginal prediction
 plot_marg_pred <- dat_marg_pred %>% 
+  distinct(st, pred_lag, lt, lwr, upr, zone) %>% 
   ggplot(aes(st, pred_lag)) +
   geom_hline(yintercept = 0, colour = "grey80", 
              linetype = "dotted") +
   geom_vline(xintercept = 0, colour = "grey80", 
              linetype = "dotted") +
-  geom_smooth(method = "lm", se = FALSE, 
-              colour = alpha(colour_coral, 0.8)) +
+  geom_smooth(method = "lm", 
+              colour = alpha(colour_coral, 0.8), 
+              fill = colour_coral, 
+              alpha = 0.2) +
   geom_linerange(aes(ymin = lwr, ymax = upr), 
                  colour = "grey30") +
   geom_point(aes(fill = zone),
@@ -314,7 +317,7 @@ plot_marg_pred <- dat_marg_pred %>%
              size = 1.5) +
   facet_wrap(~ lt) +
   labs(x = expression(paste(Delta, "  Temperature [°C]")), 
-       y = "Estimated Climatic Lag [°C]") +
+       y = "Estimated Climatic Mismatch [°C]") +
   scale_fill_manual(name = "Latitude", 
                     values = c(colour_lavender,
                                colour_brown,
@@ -322,6 +325,42 @@ plot_marg_pred <- dat_marg_pred %>%
   theme(legend.position = c(0.37, 0.2),
         panel.border = element_rect(fill = NA,
                                     colour = "grey90"))
+
+
+# without high leverage point
+plot_marg_pred_inset <- dat_marg_pred %>% 
+  distinct(st, pred_lag, lt, lwr, upr, zone) %>% 
+  filter(lt == "Warming", 
+         pred_lag > -1) %>% 
+  ggplot(aes(st, pred_lag)) +
+  geom_hline(yintercept = 0, colour = "grey80", 
+             linetype = "dotted") +
+  geom_vline(xintercept = 0, colour = "grey80", 
+             linetype = "dotted") +
+  geom_smooth(method = "lm", 
+              colour = alpha(colour_coral, 0.8), 
+              fill = colour_coral, 
+              alpha = 0.2) +
+  geom_linerange(aes(ymin = lwr, ymax = upr), 
+                 colour = "grey30") +
+  geom_point(aes(fill = zone),
+             shape = 21,
+             colour = "grey30", 
+             size = 1.5, 
+             alpha = 0.6) +
+  labs(x = NULL, 
+       y = NULL) +
+  scale_fill_manual(name = "Latitude", 
+                    values = c(colour_lavender,
+                               colour_brown,
+                               colour_green)) +
+  theme(legend.position = "none",
+        panel.border = element_rect(fill = NA,
+                                    colour = "grey90"), 
+        axis.text = element_blank(),
+        axis.ticks = element_blank())
+
+
 
 # combine and save --------------------------------------------------------
 
@@ -347,9 +386,15 @@ ggsave(plot_final, filename = here("figures",
        width = image_width, height = image_height, units = image_units, 
        bg = "white", device = ragg::agg_png)
 
+
+# same for marginal predictions
+plot_marg_pred_final <- plot_marg_pred +
+  inset_element(plot_marg_pred_inset,
+                0.75, 0.7, 1, 1)
+
 # save marginal prediction plot
-ggsave(plot_marg_pred, filename = here("figures",
-                                       "supplemental",
-                                       "legacy_trends.png"), 
+ggsave(plot_marg_pred_final, filename = here("figures",
+                                             "supplemental",
+                                             "legacy_trends.png"), 
        width = image_width, height = image_height, units = image_units, 
        bg = "white", device = ragg::agg_png)

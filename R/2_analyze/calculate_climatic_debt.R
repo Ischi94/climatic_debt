@@ -29,18 +29,6 @@ dat_mean_temp <- read_csv(here("data",
 # fit WAPLS -------------------------------------
 
 
-# shape training data for WA-PLS
-dat_temp_quant <- dat_mean_temp %>% 
-  summarize(temp_quant = quantile(temp_ym_0m)) %>% 
-  pull(temp_quant) 
-
-dat_bins <- dat_mean_temp %>% 
-  filter(between(temp_ym_0m, dat_temp_quant[2], dat_temp_quant[4]))
-
-dat_train <- dat_spp %>% 
-  filter(bin %in% unique(dat_bins$bin))
-
-
 # get the species data in the right format
 dat_train_spec <- dat_spp %>% 
   pivot_wider(id_cols = c(core_uniq, bin), 
