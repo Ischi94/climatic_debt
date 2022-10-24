@@ -46,7 +46,7 @@ dat_trends <- dat_debt %>%
 mod1 <- lm(climatic_debt ~ temp_change,
            data = dat_trends)
 
-# create equal grid for inference (accounting for differential sampling in bins)
+# create equal grid for inference
 new_data <- tibble(temp_change = seq(-3, 3, by = 0.1), 
                    bin = 0)  
 
@@ -65,8 +65,7 @@ confint(mod1)[2, ]
 
 
 # latitudinal wise
-# split data into latitudinal zones and then apply mixed effect models,
-# accounting for sampling
+# split data into latitudinal zones and then apply fixed effect models
 dat_mod <- dat_trends %>% 
   group_by(short_term, zone) %>%
   nest() %>% 
