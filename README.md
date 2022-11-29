@@ -30,3 +30,5 @@ New project on climatic debt in planktonic foraminifera.
   
 - **robustness_abundance.R**
 - robustness test calculating climatic debt based on presence-absence of species instead of relative abundance
+
+- temperature proxy data was taken from [Friedrich & Timmermann 2020](https://doi.org/10.1016/j.epsl.2019.115911)
