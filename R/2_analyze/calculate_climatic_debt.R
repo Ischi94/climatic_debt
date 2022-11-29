@@ -115,7 +115,8 @@ dat_spp_full <- dat_spp %>%
               values_fill = 0) 
 
 # predict community temperature index (cti)
-dat_pred <- dat_spp_full %>% select(-c(core_uniq, bin)) %>% 
+dat_pred <- dat_spp_full %>% 
+  select(-c(core_uniq, bin)) %>% 
   as.data.frame() %>% 
   predict(mod_wapls, newdata = ., npls = nr_comp,
           nboot = 1000) %>% 
@@ -142,3 +143,68 @@ write_rds(dat_debt,
                "cleaned_debt_wapls.rds"))
 
 
+
+
+# extract species optima based on wapls -----------------------------------
+
+
+# prepare data
+dat_spec_niche <- dat_spp %>% 
+  distinct(species) %>% 
+  add_column(dummy = 0, 
+             nr_species = 1:length(.$species)) %>% 
+  pivot_wider(names_from = species, values_from = dummy, 
+              id_cols = nr_species) %>% 
+  select(-nr_species) %>% 
+  replace(is.na(.), 10) %>% 
+  as.matrix()
+
+diag(dat_spec_niche) <- 100
+
+# predict
+dat_pred_niche <- dat_spec_niche %>% 
+  predict(mod_wapls, newdata = ., npls = nr_comp,
+          nboot = 1000, sse = TRUE) %>% 
+  keep(names(.) == 'fit.boot' | names(.) == 'v1.boot') %>% 
+  map(~ .x %>% 
+        as_tibble %>% 
+        select("Comp03")) %>% 
+  bind_cols() %>% 
+  rename(temp_pred = "Comp03...1", 
+         temp_sd = "Comp03...2") %>% 
+  add_column(species = unique(dat_spp$species))
+
+# visualise
+plot_niche <- dat_pred_niche %>% 
+  mutate(dens_val = map2(.x = temp_pred, 
+                         .y = temp_sd, 
+                         .f = ~ rnorm(10000, mean = .x, sd = .y))) %>% 
+  select(-c(temp_pred, temp_sd)) %>% 
+  unnest(c(dens_val)) %>% 
+  ggplot(aes(dens_val, group = species)) +
+  geom_density(alpha = 0.3, 
+               fill = "grey20", 
+               colour = "grey40", 
+               linewidth = 0.1) +
+  geom_hline(yintercept = 0, colour = "white", linewidth = 1) +
+  annotate(geom = "point",
+           x = c(9, 13, 17), y = -0.012,
+           shape = 21,
+           size = 5, 
+           colour = "grey30") +
+  annotate(geom = "text", 
+           x = c(9, 13, 17), y = -0.011, 
+           label = c("1", "2", "3"),
+           size = 10/.pt, 
+           colour = "grey30") +
+  theme(legend.position = "none") +
+  labs(x = "Temperature [°C]", 
+       y = NULL) +
+  scale_y_continuous(breaks = NULL)
+
+
+# save plot
+ggsave(plot_niche, filename = here("figures", 
+                                   "fig4_niches.png"), 
+       width = image_width, height = image_height, units = image_units, 
+       bg = "white", device = ragg::agg_png)
