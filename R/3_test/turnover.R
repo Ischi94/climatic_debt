@@ -75,6 +75,7 @@ dat_final <- dat_mean_temp %>%
 # visualise
 plot_turnover <- dat_final %>%
   mutate(temp = if_else(temp_change >= 0, "warm", "cool")) %>% 
+  filter(between(temp_change, -1, 1)) %>% 
   drop_na(temp) %>% 
   ggplot(aes(temp_change, turnover)) +
   geom_hline(yintercept = 0, colour = "grey80", 
@@ -84,11 +85,13 @@ plot_turnover <- dat_final %>%
   geom_point() +
   geom_smooth(aes(group = temp), 
               method = "lm", 
+              formula = y ~ x + poly(x, 2),
               colour = colour_coral, 
               fill = colour_coral, 
               alpha = 0.2) +
   labs(y = "Compositional Turnover", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
+  coord_cartesian(xlim = c(-1, 1)) +
   theme(legend.position = "none")
 
 # save
@@ -117,6 +120,7 @@ plot_turnover_proxy <- dat_final_proxy %>%
              linetype = "dotted") +
   geom_point() +
   geom_smooth(method = "lm", 
+              formula = y ~ x + poly(x, 2),
               colour = colour_coral, 
               fill = colour_coral, 
               alpha = 0.2) +
