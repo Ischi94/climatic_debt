@@ -1,6 +1,8 @@
 library(here)
 library(tidyverse)
 library(patchwork)
+library(mgcv)
+library(gratia)
 
 
 # source plotting configurations ------------------------------------------
@@ -42,27 +44,16 @@ dat_trends <- dat_debt %>%
 # model climatic debt versus temperature ----------------------------------
 
 
-# fit overall model 
-mod1 <- lm(climatic_debt ~ temp_change,
+# fit overall generalized additive model
+mod1 <- gam(climatic_debt ~ s(temp_change, bs = "cs"),
            data = dat_trends)
 
-# create equal grid for inference
-new_data <- tibble(temp_change = seq(-3, 3, by = 0.1), 
-                   bin = 0)  
+# estimate the slope from the model
+derivatives(mod1, 
+            newdata = tibble(temp_change = seq(-0.5, 0.5, by = 0.1))) 
 
-# estimate over this equal grid  
-dat_trends_pred <- predict(mod1,
-                           newdata = new_data,
-                           interval = "confidence") %>%
-  as_tibble() %>% 
-  add_column(new_data) %>% 
-  rename(predicted_debt = fit)
-
-# summarize beta coefficient
-coef(mod1)[2]
-confint(mod1)[2, ]
-
-
+# accordingly, the change points from a positive to a negative slope are at
+# -0.3 and 0.3
 
 # latitudinal wise
 # split data into latitudinal zones and then apply fixed effect models
@@ -126,29 +117,22 @@ new_data_lat <- dat_mod %>%
 # plot temperature anomaly versus climatic debt
 
 # in total
-plot_trends_total <- dat_trends_pred %>% 
-  ggplot(aes(temp_change, predicted_debt)) +
+plot_trends_total <- dat_trends %>%
+  ggplot(aes(temp_change, climatic_debt)) +
   geom_vline(xintercept = 0, 
              colour = "grey70", 
              linetype = "dotted") +
-  geom_line(data = tibble(predicted_debt = seq(-3, 3,
-                                               length.out = 20),
+  geom_line(data = tibble(climatic_debt = seq(-3, 3,
+                                              length.out = 20),
                           temp_change = seq(-3, 3,
                                             length.out = 20)),
             colour = "grey40") +
   geom_hline(yintercept = 0, 
              colour = "grey40") +
-  geom_ribbon(aes(temp_change, ymin = lwr, ymax = upr), 
-              fill = colour_coral,
-              alpha = 0.2) +
-  geom_smooth(alpha = 0, colour = "grey50", 
-              linetype = "dashed", 
-              size = 0.6,
-              data = dat_trends %>% 
-                rename(predicted_debt = climatic_debt)) +
-  geom_line(colour = colour_coral, 
-            lwd = 1, 
-            alpha = 0.8) +
+  geom_smooth(colour = colour_coral, 
+              size = 0.6, 
+              alpha = 0.2,
+              fill = colour_coral) +
   annotate(geom = "text", 
            x = 1.9, y = 2.25, 
            label = "No response", 
