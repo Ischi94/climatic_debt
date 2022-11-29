@@ -19,7 +19,11 @@ dat_mean_temp <- read_csv(here("data",
   select(bin, temp_ym_0m) 
 
 
-
+# temperature estimates from proxy data
+dat_proxy <- read_rds(here("data", 
+                           "proxy_temperature.rds")) %>% 
+  # nas are encode as -999
+  filter(temp != -999)
 
 
 # source plotting configurations ------------------------------------------
@@ -79,7 +83,7 @@ dat_debt_trends %>%
 
 # use leave-one-out cross-validation 
 aic_loo <- function(lm_frml,
-                    data = dat_debt_trends,
+                    data = NULL,
                     parameters = "climatic_debt") {
   
   # get observations
@@ -108,23 +112,28 @@ aic_loo <- function(lm_frml,
 
 
 # null model with intercept only
-mod_null <- aic_loo(lm_frml = formula(climatic_debt ~ 1))
+mod_null <- aic_loo(lm_frml = formula(climatic_debt ~ 1), 
+                    data = dat_debt_trends)
 
 # short-term only
 mod_st <- aic_loo(lm_frml = formula(climatic_debt ~ st),
-                  parameters = "st")
+                  parameters = "st", 
+                  data = dat_debt_trends)
 
 # short-term interacting with 8ka long-term trend
 mod_lt1 <- aic_loo(lm_frml = formula(climatic_debt ~ st:lt1),
-                   parameters = c("st", "lt1"))
+                   parameters = c("st", "lt1"), 
+                   data = dat_debt_trends)
 
 # short-term interacting with 16ka long-term trend
 mod_lt2 <- aic_loo(lm_frml = formula(climatic_debt ~ st:lt2),
-                   parameters = c("st", "lt2"))
+                   parameters = c("st", "lt2"), 
+                   data = dat_debt_trends)
 
 # short-term interacting with 24ka long-term trend
 mod_lt3 <- aic_loo(lm_frml = formula(climatic_debt ~ st:lt3),
-                   parameters = c("st", "lt3"))
+                   parameters = c("st", "lt3"), 
+                   data = dat_debt_trends)
 
 
 # put in a list to call iteratively 
@@ -172,6 +181,79 @@ for (i in 1:1000) {
 dat_rsq %>% 
   as_tibble() %>% 
   summarise(mean_cl_normal(value))
+
+
+
+# same for proxy data -----------------------------------------------------
+
+dat_debt_average <- dat_debt_trends %>% 
+  group_by(bin) %>% 
+  summarise(climatic_debt = mean(climatic_debt))  
+
+dat_debt_average <- dat_proxy %>% 
+  mutate(bin = age) %>%
+  right_join(dat_debt_average) %>% 
+  mutate(temp_change = lead(temp, default = mean(temp))) %>% 
+  # calculate short-term changes
+  mutate(st = (temp - temp_change)/8) %>% 
+  # calculate first long-term trend
+  mutate(lt1 = (temp_change - lead(temp_change, default = mean(temp_change)))/8) %>% 
+  # calculate second long-term trend
+  mutate(lt2 = (temp_change - lead(temp_change, default = mean(temp_change), n = 2))/8) %>% 
+  # calculate third long-term trend
+  mutate(lt3 = (temp_change - lead(temp_change, default = mean(temp_change), n = 3))/8) 
+
+
+
+# null model with intercept only
+mod_null <- aic_loo(lm_frml = formula(climatic_debt ~ 1), 
+                    data = dat_debt_average)
+
+# short-term only
+mod_st <- aic_loo(lm_frml = formula(climatic_debt ~ st),
+                  parameters = "st", 
+                  data = dat_debt_average)
+
+# short-term interacting with 8ka long-term trend
+mod_lt1 <- aic_loo(lm_frml = formula(climatic_debt ~ st:lt1),
+                   parameters = c("st", "lt1"), 
+                   data = dat_debt_average)
+
+# short-term interacting with 16ka long-term trend
+mod_lt2 <- aic_loo(lm_frml = formula(climatic_debt ~ st:lt2),
+                   parameters = c("st", "lt2"), 
+                   data = dat_debt_average)
+
+# short-term interacting with 24ka long-term trend
+mod_lt3 <- aic_loo(lm_frml = formula(climatic_debt ~ st:lt3),
+                   parameters = c("st", "lt3"), 
+                   data = dat_debt_average)
+
+
+# put in a list to call iteratively 
+mod_list <- list(mod_null, mod_st,
+                 mod_lt1, mod_lt2,
+                 mod_lt3)
+
+# summarise leave-one-out AIC
+
+# create comparison table
+dat_mod_comp_proxy <- tibble(model = c("Null Model",
+                                 "Temperature",
+                                 "Temperature\n + 8ka",
+                                 "Temperature\n + 16ka",
+                                 "Temperature\n + 24ka"),
+                       aic = map_dbl(mod_list, mean),
+                       aic_sd = map_dbl(mod_list, sd)) %>%
+  # include uncertainty based on loo
+  mutate(lwr = aic - aic_sd, 
+         upr = aic + aic_sd) %>% 
+  # calculate delta_aic
+  mutate(delta_aic = aic - .[[4, 2]],
+         lwr = lwr - .[[4, 2]], 
+         upr = upr - .[[4, 2]], 
+         radius = (upr - lwr)/2)
+
 
 
 
@@ -249,7 +331,7 @@ plot_debt_time <- dat_debt_boot %>%
               colour = "white", 
               fill = colour_grey, 
               alpha = 0.7) +
-  geom_line(colour = alpha(colour_coral, 0.7), lwd = 1) +
+  geom_line(colour = alpha(colour_coral, 0.7), linewidth = 1) +
   annotate("rect",
            xmin = 420, xmax = 480, 
            ymin = -Inf, ymax = 3,
@@ -296,7 +378,24 @@ plot_mod_comp <- dat_mod_comp %>%
         axis.ticks.y = element_blank()) +
   coord_cartesian(clip = "off")
 
-
+# model comparison with proxy data
+plot_mod_comp_proxy <- dat_mod_comp %>% 
+  mutate(model = fct_reorder(model, c(5:1))) %>% 
+  ggplot(aes(delta_aic, model)) +
+  geom_segment(aes(x = 0, xend = delta_aic, 
+                   yend = model), 
+               colour = "grey20") +
+  geom_point(aes(size = radius), 
+             colour = colour_grey) +
+  geom_point(size = 1.5, shape = 21, 
+             stroke = 0.15, 
+             fill = colour_coral,
+             alpha = 0.7,
+             colour = "grey20") +
+  labs(y = NULL, x = expression(paste(Delta, "  AIC"))) +
+  theme(legend.position = "none", 
+        axis.ticks.y = element_blank()) +
+  coord_cartesian(clip = "off")
 # marginal prediction
 plot_marg_pred <- dat_marg_pred %>% 
   distinct(st, pred_lag, lt, lwr, upr, zone) %>% 
@@ -387,6 +486,13 @@ ggsave(plot_final, filename = here("figures",
        bg = "white", device = ragg::agg_png)
 
 
+# proxy data comparison
+ggsave(plot_mod_comp_proxy, filename = here("figures",
+                                            "supplemental",
+                                            "model_comparison_proxy.png"), 
+       width = image_width, height = image_height, units = image_units, 
+       bg = "white", device = ragg::agg_png)
+
 # same for marginal predictions
 plot_marg_pred_final <- plot_marg_pred +
   inset_element(plot_marg_pred_inset,
@@ -398,3 +504,4 @@ ggsave(plot_marg_pred_final, filename = here("figures",
                                              "legacy_trends.png"), 
        width = image_width, height = image_height, units = image_units, 
        bg = "white", device = ragg::agg_png)
+
