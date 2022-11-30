@@ -175,16 +175,19 @@ dat_pred_niche <- dat_spec_niche %>%
   add_column(species = unique(dat_spp$species))
 
 # visualise
-plot_niche <- dat_pred_niche %>% 
+plot_niche <- dat_pred_niche %>%
   mutate(dens_val = map2(.x = temp_pred, 
                          .y = temp_sd, 
                          .f = ~ rnorm(10000, mean = .x, sd = .y))) %>% 
   select(-c(temp_pred, temp_sd)) %>% 
   unnest(c(dens_val)) %>% 
+  group_by(species) %>% 
+  mutate(mean_temp = median(dens_val)) %>% 
+  ungroup() %>% 
   ggplot(aes(dens_val, group = species)) +
-  geom_density(alpha = 0.3, 
-               fill = "grey20", 
-               colour = "grey40", 
+  geom_density(aes(fill = mean_temp), 
+               alpha = 0.4, 
+               colour = "grey60", 
                linewidth = 0.1) +
   geom_hline(yintercept = 0, colour = "white", linewidth = 1) +
   annotate(geom = "point",
@@ -200,7 +203,12 @@ plot_niche <- dat_pred_niche %>%
   theme(legend.position = "none") +
   labs(x = "Temperature [°C]", 
        y = NULL) +
-  scale_y_continuous(breaks = NULL)
+  scale_y_continuous(breaks = NULL) +
+  scale_fill_gradient2(low = "#105157ff",
+                       mid = "#8f7270ff",
+                       high = colour_lavender, 
+                       midpoint = 24,
+                       n.breaks = 10)
 
 
 # save plot
