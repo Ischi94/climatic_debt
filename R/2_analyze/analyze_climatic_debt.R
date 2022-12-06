@@ -55,6 +55,12 @@ derivatives(mod1,
 # accordingly, the change points from a positive to a negative slope are at
 # -0.3 and 0.3
 
+# get predictions
+dat_pred <- predict(mod1, se.fit = TRUE) 
+dat_pred <- tibble(pred_debt = dat_pred[[1]] - rnorm(n = length(dat_pred[[1]]),
+                                                     sd = dat_pred[[2]]*sqrt(14))) %>% 
+  bind_cols(dat_trends)
+
 # latitudinal wise
 # split data into latitudinal zones and then apply fixed effect models
 dat_mod <- dat_trends %>% 
@@ -130,7 +136,7 @@ plot_trends_total <- dat_trends %>%
   geom_hline(yintercept = 0, 
              colour = "grey40") +
   geom_smooth(colour = colour_coral, 
-              size = 0.6, 
+              linewidth = 0.6, 
               alpha = 0.2,
               fill = colour_coral) +
   annotate(geom = "text", 
@@ -171,6 +177,11 @@ plot_trends_total
 # and per latitudinal zone
 plot_trends_lat <- new_data_lat %>% 
   ggplot(aes(temp_change, predicted_debt)) +
+  geom_point(aes(temp_change, pred_debt, 
+                 colour = zone), 
+             data = dat_pred, 
+             alpha = 0.1, 
+             size = 0.6) +
   geom_vline(xintercept = 0, 
              colour = "grey70", 
              linetype = "dotted") +
