@@ -18,6 +18,26 @@ dat_spp <- read_rds(here("data",
   filter(!(core_uniq == "124_767B" & bin == 292))
 
 
+# climatic debt based on weighted averages --------------------------------
+
+dat_debt <- read_rds(here("data",
+                          "cleaned_debt_wapls.rds")) %>% 
+  # add latitudinal zones
+  mutate(abs_lat = abs(pal.lat), 
+         zone = case_when(
+           abs_lat >= 60 ~ "High",
+           between(abs_lat, 30, 60) ~ "Mid", 
+           between(abs_lat, 0, 30) ~ "Low")) %>% 
+  # convert temperature in temperature anomaly
+  mutate(temp_anom = (temp_surface - mean(temp_surface, na.rm = TRUE)) / 
+           sd(temp_surface, na.rm = TRUE)) %>% 
+  mutate(short_term = if_else(temp_anom > lead(temp_anom),
+                              "warming",
+                              "cooling"), 
+         temp_change = temp_anom - lead(temp_anom, 
+                                        default = mean(temp_anom))) %>% 
+  drop_na(short_term)
+
 # climatic debt based on presence only ------------------------------------
 
 
@@ -67,7 +87,7 @@ new_data <- tibble(temp_change = seq(-3, 3, by = 0.2),
 # estimate over this equal grid  
 dat_trends_pred <- predict(mod1,
                            newdata = new_data,
-                           interval = "prediction") %>%
+                           interval = "confidence") %>%
   as_tibble() %>% 
   add_column(new_data) %>% 
   rename(predicted_debt = fit)
@@ -80,9 +100,13 @@ plot_trends_comp <- dat_trends_pred %>%
              colour = "grey70", 
              linetype = "dotted") +
   # add the slope based on relative abundance
-  geom_abline(intercept = -0.214, slope = 0.558, 
-              colour = colour_coral, 
-              alpha = 0.8, lwd = 1) +
+  geom_smooth(aes(temp_change, climatic_debt), 
+              data = dat_debt, 
+              method = "lm", 
+              colour = colour_coral,
+              fill = colour_coral,
+              alpha = 0.8, linewidth = 1) +
+
   geom_ribbon(aes(temp_change, ymin = lwr, ymax = upr), 
               fill = colour_grey,
               alpha = 0.2) +
