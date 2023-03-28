@@ -174,3 +174,25 @@ ggsave(plot_comparison, filename = here("figures",
        bg = "white", device = ragg::agg_png)
 
 
+# same for spatial sampling over time
+plot_heatmap <- dat_trends %>% 
+  count(bin, zone) %>% 
+  mutate(zone = ordered(zone, 
+                        levels = c("Low", "Mid", "High"))) %>% 
+  ggplot(aes(bin, zone, fill = log1p(n))) +
+  geom_tile() +
+  scale_fill_gradient(low = colour_lavender, 
+                      high = colour_coral, 
+                      breaks = c(2, 4, 6), 
+                      labels = round(expm1(c(2, 4, 6))), 
+                      name = "# Assemblages") +
+  scale_x_reverse() +
+  labs(x = "Age [ka]", 
+       y = "Latitudinal zone")
+
+# save plot
+ggsave(plot_heatmap, filename = here("figures", 
+                                        "supplemental",
+                                        "sampling_heatmap.png"), 
+       width = image_width, height = image_height, units = image_units, 
+       bg = "white", device = ragg::agg_png)

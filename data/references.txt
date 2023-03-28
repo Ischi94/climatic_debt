@@ -60,7 +60,6 @@ source
 "Wang, L (1994): (Appendix 2-4) Distribution of planktonic foraminifera in late Neogene sediments of DSDP Site 31-292 in the western Pacific Ocean"
 "Anderson et al.,1989,Paleoceanography,doi:10.1029/PA004i006p00615"
 "LDEO Columbia University,2003,Paleoceanography,doi:10.1029/2002PA000774"
-1
 "Core Report 339 U1385D, doi:10.2204/iodp.proc.339.103.2013"
 "Weaver, PPE; Carter, L; Neil, HL (1998): Planktonic foraminiferal abundances in sediment core S794"
 "McKenna, VS; Farrell, JW; Murray, DW et al. (1995): (Appendix) Planktonic foraminifera abundances in ODP Site 138-847B"

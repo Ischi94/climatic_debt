@@ -37,7 +37,9 @@ dat_depth <- read_csv(here("data",
                      beta_coef = paste0(beta_coef, " [", ci_low, ", ", ci_high, "]")) %>% 
               select(zone, short_term, beta_coef))
   
-
+# temperature niches
+dat_temp_niche <- read_rds(here("data", 
+                                "niche_temperatures.rds"))
 
 # create tables -----------------------------------------------------------
 
@@ -102,6 +104,22 @@ dat_depth_tbl <- dat_depth %>%
   merge_v(j = c("zone"))
 
 
+# summary of species temperature niches
+dat_niche_tbl <- dat_temp_niche %>%
+  select(species, temp_pred, temp_sd) %>% 
+  mutate(across(c(temp_pred, temp_sd), 
+         round, 1)) %>% 
+  flextable() %>% 
+  theme_vanilla() %>% 
+  # set column names
+  compose(j = 1, part = "header", 
+          value = as_paragraph("Species")) %>%
+  compose(j = 2, part = "header", 
+          value = as_paragraph("Mean [°C]")) %>% 
+  compose(j = 3, part = "header", 
+          value = as_paragraph("SD [°C]")) 
+
+
 # create word document ----------------------------------------------------
 
 # open docx-file and add flextable
@@ -110,7 +128,9 @@ my_doc <- read_docx() %>%
   body_add_break() %>% 
   body_add_flextable(dat_spp_tbl, pos = "after") %>% 
   body_add_break() %>% 
-  body_add_flextable(dat_depth_tbl, pos = "after") 
+  body_add_flextable(dat_depth_tbl, pos = "after") %>% 
+  body_add_break() %>% 
+  body_add_flextable(dat_niche_tbl, pos = "after")
 
 # convert to word file/ add input to empty docx
 print(my_doc, target = here("figures",

@@ -174,6 +174,11 @@ dat_pred_niche <- dat_spec_niche %>%
          temp_sd = "Comp03...2") %>% 
   add_column(species = unique(dat_spp$species))
 
+# save data
+write_rds(dat_pred_niche, 
+          here("data", 
+               "niche_temperatures.rds"))
+
 # visualise
 plot_niche <- dat_pred_niche %>%
   mutate(dens_val = map2(.x = temp_pred, 
