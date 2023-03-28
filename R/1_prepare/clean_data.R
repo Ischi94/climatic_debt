@@ -105,7 +105,7 @@ dat_clean_pres <- dat_clean_pres %>%
                                    "Menardella fimbriata",
                                    "Menardella menardii")) %>% 
   # remove T. cavernula and excelsa, which originated <800 ka
-  filter(!earliest < 0.8)
+  filter((!earliest < 0.8) %>% replace_na(TRUE))
 
 
 # remove species from reworked sediment, present younger than their LAD
@@ -173,14 +173,8 @@ dat_clean_depth <- dat_clean_binned %>%
 
 # clean and safe ----------------------------------------------------------
 
-# remove species with less than 10 occurrences
-dat_final <- dat_clean_depth %>% 
-  add_count(species) %>%
-  filter(n > 10) %>% 
-  select(-n)
-
 # save final data set
-dat_final %>% 
+dat_clean_depth %>% 
   write_rds(here("data", 
                  "cleaned_spp_data.rds"), 
             compress = "gz")
