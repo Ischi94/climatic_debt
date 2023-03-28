@@ -57,8 +57,7 @@ derivatives(mod1,
 
 # get predictions
 dat_pred <- predict(mod1, se.fit = TRUE) 
-dat_pred <- tibble(pred_debt = dat_pred[[1]] - rnorm(n = length(dat_pred[[1]]),
-                                                     sd = dat_pred[[2]]*sqrt(14))) %>% 
+dat_pred <- tibble(pred_debt = dat_pred[[1]]) %>% 
   bind_cols(dat_trends)
 
 # latitudinal wise
@@ -167,7 +166,7 @@ plot_trends_total <- dat_trends %>%
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-3, 3), 
-                  xlim = c(-2.5, 2.5)) +
+                  xlim = c(-2.2, 2.2)) +
   theme(axis.ticks = element_blank())
 
 
@@ -177,9 +176,9 @@ plot_trends_total
 # and per latitudinal zone
 plot_trends_lat <- new_data_lat %>% 
   ggplot(aes(temp_change, predicted_debt)) +
-  geom_point(aes(temp_change, pred_debt, 
+  geom_point(aes(temp_change, climatic_debt/3, 
                  colour = zone), 
-             data = dat_pred, 
+             data = dat_trends, 
              alpha = 0.1, 
              size = 0.6) +
   geom_vline(xintercept = 0, 
