@@ -332,23 +332,6 @@ plot_debt_time <- dat_debt_boot %>%
               fill = colour_grey, 
               alpha = 0.7) +
   geom_line(colour = alpha(colour_coral, 0.7), linewidth = 1) +
-  annotate("rect",
-           xmin = 420, xmax = 480, 
-           ymin = -Inf, ymax = 3,
-           colour = "white",
-           fill = "white") +
-  annotate("curve", 
-           x = 370, xend = 450, 
-           y = -2.8, yend = -2, curvature = -0.3,
-           arrow = arrow(ends = "last", 
-                         length = unit(.2,"cm")), 
-           colour = "grey70") +
-  annotate("label",
-           x = 280, y = -2.8,
-           label = "sampling hiatus",
-           colour = "grey70",
-           size = 10/.pt, 
-           label.size = 0) +
   labs(x = "Age [ka]", 
        y = "Average Global\nClimatic Mismatch [°C/8ka]") +
   coord_cartesian(ylim = c(-4, 4.5)) +
@@ -396,6 +379,7 @@ plot_mod_comp_proxy <- dat_mod_comp %>%
   theme(legend.position = "none", 
         axis.ticks.y = element_blank()) +
   coord_cartesian(clip = "off")
+
 # marginal prediction
 plot_marg_pred <- dat_marg_pred %>% 
   distinct(st, pred_lag, lt, lwr, upr, zone) %>% 
