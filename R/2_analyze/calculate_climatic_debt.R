@@ -141,8 +141,8 @@ dat_debt <- dat_spp %>%
 
   
 # save data
-write_rds(dat_debt, 
-          here("data", 
+dat_debt %>% 
+  write_rds(here("data", 
                "cleaned_debt_wapls.rds"))
 
 
@@ -161,16 +161,16 @@ plot_niche <- dat_spp %>%
                colour = "grey60", 
                linewidth = 0.1) +
   geom_hline(yintercept = 0, colour = "white", linewidth = 1) +
-  annotate(geom = "point",
-           x = c(9, 13, 17), y = -0.012,
-           shape = 21,
-           size = 5, 
-           colour = "grey30") +
-  annotate(geom = "text", 
-           x = c(9, 13, 17), y = -0.011, 
-           label = c("1", "2", "3"),
-           size = 10/.pt, 
-           colour = "grey30") +
+  # annotate(geom = "point",
+  #          x = c(9, 13, 17), y = -0.012,
+  #          shape = 21,
+  #          size = 5, 
+  #          colour = "grey30") +
+  # annotate(geom = "text", 
+  #          x = c(9, 13, 17), y = -0.011, 
+  #          label = c("1", "2", "3"),
+  #          size = 10/.pt, 
+  #          colour = "grey30") +
   theme(legend.position = "none") +
   labs(x = "Temperature [°C]", 
        y = NULL) +
