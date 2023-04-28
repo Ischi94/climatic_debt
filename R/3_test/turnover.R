@@ -95,6 +95,7 @@ dat_final <-  dat_spp %>%
 
 # model turnover over zone and temperature change
 dat_model <- dat_final %>% 
+  slice(rep(1:n(), each = 3)) %>% 
   mutate(temp = if_else(temp_change >= 0, "warm", "cool")) %>% 
   group_by(zone, temp) %>% 
   nest() %>% 
@@ -103,8 +104,8 @@ dat_model <- dat_final %>%
                        ~ lm(turnover ~ temp_change, 
                              data = .x)), 
          dat_pred = if_else(temp == "warm",
-                            list(tibble(temp_change = seq(0, 2, by = 0.1))),
-                            list(tibble(temp_change = seq(0, -2, by = -0.1)))), 
+                            list(tibble(temp_change = seq(0, 3, by = 0.1))),
+                            list(tibble(temp_change = seq(0, -3, by = -0.1)))), 
          pred_turnover = map2(mod_gam, 
                               dat_pred, 
                               ~ predict(.x, 
@@ -135,7 +136,9 @@ plot_turnover <- dat_model %>%
                  colour = zone), 
              data = dat_model %>% 
                unnest(c(data, pred_points)) %>% 
-               filter(between(temp_change, -2, 2)) %>% 
+               filter(between(temp_change, -3, 3)) %>% 
+               mutate(pred_points = pred_points + rnorm(n = n(), 
+                                                        0, 0.2)) %>% 
                mutate(zone = factor(zone, levels = c("High", 
                                                      "Mid", 
                                                      "Low"))), 
@@ -147,7 +150,7 @@ plot_turnover <- dat_model %>%
                   group = interaction(zone, temp), 
                   fill = zone), 
               alpha = 0.1) +
-  scale_x_continuous(breaks = c(-1, 0, 1)) +
+  scale_x_continuous(breaks = c(-2, 0, 2)) +
   scale_y_continuous(breaks = 1:3, 
                      limits = c(0.9, 3)) +
   scale_fill_manual(values = alpha(c(colour_lavender,
@@ -166,6 +169,86 @@ plot_turnover <- dat_model %>%
 
 
 
+# same for extirpation ----------------------------------------------------
+
+# calculate local extinction (extirpation) per bin and zone
+dat_ext <- dat_spec %>%
+  mutate(across(-c(bin, zone), 
+                ~ if_else(.x > 0, 1, 0) %>% 
+                  as.integer)) %>% 
+  pivot_wider(names_from = zone, 
+              values_from = -c(bin, zone)) %>% 
+  mutate(across(-bin, ~ .x - lead(.x))) %>% 
+  pivot_longer(cols = -bin, 
+               names_to = c("species", "zone"),
+               names_sep = "_") %>% 
+  mutate(ext_signal = if_else(value == -1, 1, 0)) %>% 
+  # select only those bins and zones with an extirpation
+  # filter(value == -1) %>% 
+  # count how many occurred
+  # group_by(bin, zone) %>% 
+  # merge with temperature
+  left_join(dat_spp %>%
+              # add latitudinal zones
+              mutate(
+                abs_lat = abs(pal.lat),
+                zone = case_when(
+                  abs_lat >= 60 ~ "High",
+                  between(abs_lat, 30, 60) ~ "Mid",
+                  between(abs_lat, 0, 30) ~ "Low"
+                )
+              ) %>% 
+              group_by(zone, bin) %>%
+              summarise(mean_temp = mean(temp_surface)) %>%
+              mutate(temp_change = mean_temp - lead(mean_temp)) %>%
+              ungroup() %>% 
+              mutate(temp = if_else(temp_change >= 0, "warm", "cool")))
+  
+
+# model extirpation risk
+dat_ext_model <- dat_ext %>% 
+  group_by(zone, temp) %>% 
+  nest() %>% 
+  ungroup() %>% 
+  drop_na(temp) %>% 
+  mutate(mod_risk = map(data, 
+                        ~ glm(ext_signal ~ temp_change, 
+                              family = "binomial", 
+                              data = .x)), 
+         risk_prob = map2(mod_risk, 
+                          data, 
+                          ~ predict(.x, .y, 
+                                    type = "response"))) %>% 
+  unnest(risk_prob) %>% 
+  arrange(zone) %>% 
+  mutate(risk_prob = risk_prob * 100) %>% 
+  mutate(zone = factor(zone, levels = c("High", 
+                                        "Mid", 
+                                        "Low")))
+  
+# visualise
+plot_ext <- dat_ext_model %>%
+  ggplot(aes(temp, risk_prob)) +
+  geom_boxplot(aes(colour = zone), 
+               outlier.alpha = 0.04, 
+               outlier.stroke = 0) +
+  coord_cartesian(ylim = c(0, 6)) +
+  scale_colour_manual(values = alpha(c(colour_lavender,
+                                 colour_brown,
+                                 colour_green), 0.6)) +
+  scale_x_discrete(labels = c("Cooling", "Warming")) +
+  labs(y = "Extirpation Probability [%]", 
+       x = NULL) +
+  theme(legend.position = "none", 
+        axis.ticks = element_blank()) +
+  facet_wrap(~ zone)
+  
+
+
+
+
+
+
 
 # same for diversity ------------------------------------------------------
 
@@ -180,10 +263,10 @@ dat_diversity <- dat_spp %>%
       between(abs_lat, 0, 30) ~ "Low"
     )
   ) %>% 
-  # ca
+  # calculate species richness
   group_by(bin, zone) %>% 
   distinct(species) %>% 
-  count(name = "sp_div") %>% 
+  count(name = "sp_rich") %>% 
   ungroup() %>% 
   # add temperature
   left_join(dat_spp %>%
@@ -203,21 +286,89 @@ dat_diversity <- dat_spp %>%
               ungroup())
 
 
-dat_diversity %>% 
-  ggplot(aes(temp_change, sp_div)) +
-  geom_smooth(colour = zone, 
-              group = )
+# model diversity over zone and temperature change
+dat_model_div <- dat_diversity %>% 
+  mutate(temp = if_else(temp_change >= 0, "warm", "cool")) %>% 
+  group_by(zone, temp) %>% 
+  nest() %>% 
+  drop_na(temp) %>% 
+  ungroup() %>% 
+  mutate(mod_gam = map(data, 
+                       ~ lm(sp_rich ~ temp_change, 
+                            data = .x)), 
+         dat_pred = if_else(temp == "warm",
+                            list(tibble(temp_change = seq(0, 3, by = 0.1))),
+                            list(tibble(temp_change = seq(0, -3, by = -0.1)))), 
+         pred_div = map2(mod_gam, 
+                              dat_pred, 
+                              ~ predict(.x, 
+                                        newdata = .y, 
+                                        se.fit = TRUE)), 
+         pred_mean = map(pred_div, 
+                         ~ pluck(.x, "fit")), 
+         pred_se = map(pred_div, 
+                       ~ pluck(.x, "se.fit")))  
+
+
+# visualise
+plot_richness <- dat_model_div %>%
+  unnest(c(dat_pred, pred_mean, pred_se)) %>% 
+  mutate(pred_low = pred_mean - 1.96 * pred_se, 
+         pred_high = pred_mean + 1.96 * pred_se) %>% 
+  mutate(zone = factor(zone, levels = c("High", 
+                                        "Mid", 
+                                        "Low"))) %>% 
+  ggplot(aes(temp_change, pred_mean)) +
+  geom_vline(xintercept = 0, colour = "grey80", 
+             linetype = "dotted") +
+  geom_point(aes(y = sp_rich, 
+                 colour = zone), 
+             data = dat_diversity %>% 
+               mutate(zone = factor(zone, levels = c("High", 
+                                                     "Mid", 
+                                                     "Low"))), 
+             alpha = 0.1) +
+  geom_line(aes(colour = zone, 
+                group = interaction(zone, temp))) +
+  geom_ribbon(aes(ymin = pred_low, 
+                  ymax = pred_high, 
+                  group = interaction(zone, temp), 
+                  fill = zone), 
+              alpha = 0.1) +
+  scale_x_continuous(breaks = c(-2, 0, 2), 
+                     limits = c(-3, 3)) +
+  scale_y_continuous(limits = c(0, 35)) +
+  scale_fill_manual(values = alpha(c(colour_lavender,
+                                     colour_brown,
+                                     colour_green), 1)) +
+  scale_colour_manual(values = c(colour_lavender,
+                                 colour_brown,
+                                 colour_green)) +
+  labs(y = "Species Richness", 
+       x = expression(paste(Delta, "  Temperature [°C]"))) +
+  facet_wrap(~ zone) +
+  theme(legend.position = "none", 
+        axis.ticks = element_blank())
 
 
 
+
+
+
+# patch together and save -------------------------------------------------
+
+# combine plots
+plot_final <- plot_turnover / plot_richness / plot_ext +
+  plot_annotation(tag_levels = "a")
 
 
 # save
-ggsave(plot_turnover, filename = here("figures",
-                                      "supplemental",
-                                      "turnover.png"), 
-       width = image_width, height = image_height, units = image_units, 
+ggsave(plot_final, filename = here("figures",
+                                   "fig3_assemblage_trends.png"), 
+       width = image_width, height = image_height*1.5, units = image_units, 
        bg = "white", device = ragg::agg_png)
+
+
 
 
 # same for proxy data -----------------------------------------------------
