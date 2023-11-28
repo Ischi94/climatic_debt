@@ -122,13 +122,23 @@ dat_model <- dat_final %>%
   
 
 # visualise
-plot_turnover <- dat_model %>% 
+plot_turnover <- dat_model %>%
   unnest(c(dat_pred, pred_mean, pred_se)) %>% 
   mutate(pred_low = pred_mean - 1.96 * pred_se, 
          pred_high = pred_mean + 1.96 * pred_se) %>% 
   mutate(zone = factor(zone, levels = c("High", 
                                         "Mid", 
                                         "Low"))) %>% 
+  group_by(zone) %>% 
+  mutate(data = map(data, ~ filter(.x, between(.x$temp_change, -3, 3))), 
+         max_cooling = map_dbl(data, ~ min(.x$temp_change)), 
+         max_warming =  map_dbl(data, ~ max(.x$temp_change)), 
+         line_range = if_else(between(temp_change, 
+                                      max_cooling, 
+                                      max_warming), 
+                              1, 
+                              0)) %>% 
+  ungroup() %>% 
   ggplot(aes(temp_change, pred_mean)) +
   geom_vline(xintercept = 0, colour = "grey80", 
              linetype = "dotted") +
@@ -144,7 +154,9 @@ plot_turnover <- dat_model %>%
                                                      "Low"))), 
              alpha = 0.1) +
   geom_line(aes(colour = zone, 
+                alpha = line_range, 
                 group = interaction(zone, temp))) +
+  scale_alpha_identity() +
   geom_ribbon(aes(ymin = pred_low, 
                   ymax = pred_high, 
                   group = interaction(zone, temp), 
@@ -183,10 +195,6 @@ dat_ext <- dat_spec %>%
                names_to = c("species", "zone"),
                names_sep = "_") %>% 
   mutate(ext_signal = if_else(value == -1, 1, 0)) %>% 
-  # select only those bins and zones with an extirpation
-  # filter(value == -1) %>% 
-  # count how many occurred
-  # group_by(bin, zone) %>% 
   # merge with temperature
   left_join(dat_spp %>%
               # add latitudinal zones
@@ -318,6 +326,16 @@ plot_richness <- dat_model_div %>%
   mutate(zone = factor(zone, levels = c("High", 
                                         "Mid", 
                                         "Low"))) %>% 
+  group_by(zone) %>% 
+  mutate(data = map(data, ~ filter(.x, between(.x$temp_change, -3, 3))), 
+         max_cooling = map_dbl(data, ~ min(.x$temp_change)), 
+         max_warming =  map_dbl(data, ~ max(.x$temp_change)), 
+         line_range = if_else(between(temp_change, 
+                                      max_cooling, 
+                                      max_warming), 
+                              1, 
+                              0)) %>% 
+  ungroup() %>% 
   ggplot(aes(temp_change, pred_mean)) +
   geom_vline(xintercept = 0, colour = "grey80", 
              linetype = "dotted") +
@@ -329,12 +347,14 @@ plot_richness <- dat_model_div %>%
                                                      "Low"))), 
              alpha = 0.1) +
   geom_line(aes(colour = zone, 
+                alpha = line_range,
                 group = interaction(zone, temp))) +
   geom_ribbon(aes(ymin = pred_low, 
                   ymax = pred_high, 
                   group = interaction(zone, temp), 
                   fill = zone), 
               alpha = 0.1) +
+  scale_alpha_identity() +
   scale_x_continuous(breaks = c(-2, 0, 2), 
                      limits = c(-3, 3)) +
   scale_y_continuous(limits = c(0, 35)) +
@@ -370,37 +390,4 @@ ggsave(plot_final, filename = here("figures",
 
 
 
-
-# same for proxy data -----------------------------------------------------
-
-# join with dataset
-dat_final_proxy <- dat_proxy %>% 
-  rename(bin = age) %>% 
-  filter(bin %in% dat_spec$bin) %>% 
-  mutate(temp_change = temp - lead(temp)) %>% 
-  add_column(turnover = dat_diag[1:15]) 
-
-# visualise
-plot_turnover_proxy <- dat_final_proxy %>%
-  mutate(temp = if_else(temp_change >= 0, "warm", "cool")) %>% 
-  drop_na(temp) %>% 
-  ggplot(aes(abs(temp_change), turnover)) +
-  geom_hline(yintercept = 0, colour = "grey80", 
-             linetype = "dotted") +
-  geom_point() +
-  geom_smooth(method = "lm", 
-              formula = y ~ x + poly(x, 2),
-              colour = colour_coral, 
-              fill = colour_coral, 
-              alpha = 0.2) +
-  labs(y = "Compositional Turnover", 
-       x = expression(paste("Absolute " ,Delta, " Temperature [°C]"))) +
-  theme(legend.position = "none")
-
-# save
-ggsave(plot_turnover_proxy, filename = here("figures",
-                                      "supplemental",
-                                      "turnover_proxy.png"), 
-       width = image_width, height = image_height, units = image_units, 
-       bg = "white", device = ragg::agg_png)
 
