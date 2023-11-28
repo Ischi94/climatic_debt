@@ -37,9 +37,11 @@ dat_depth <- read_csv(here("data",
                      beta_coef = paste0(beta_coef, " [", ci_low, ", ", ci_high, "]")) %>% 
               select(zone, short_term, beta_coef))
   
-# temperature niches
-dat_temp_niche <- read_rds(here("data", 
-                                "niche_temperatures.rds"))
+dat_niche <- dat_spp %>% 
+  group_by(species) %>% 
+  summarise(mean_temp = mean(temp_surface), 
+            sd_temp = sd(temp_surface))
+
 
 # create tables -----------------------------------------------------------
 
@@ -105,10 +107,11 @@ dat_depth_tbl <- dat_depth %>%
 
 
 # summary of species temperature niches
-dat_niche_tbl <- dat_temp_niche %>%
-  select(species, temp_pred, temp_sd) %>% 
-  mutate(across(c(temp_pred, temp_sd), 
+dat_niche_tbl <- dat_niche %>%
+  select(species, mean_temp, sd_temp) %>% 
+  mutate(across(c(mean_temp, sd_temp), 
          round, 1)) %>% 
+  arrange(species) %>% 
   flextable() %>% 
   theme_vanilla() %>% 
   # set column names
