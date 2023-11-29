@@ -126,7 +126,7 @@ plot_trends_comp <- dat_trends_pred %>%
            colour = "grey20",
            angle = 15, 
            size = 10/.pt) +
-  labs(y = "Climatic Mismatch [°C]", 
+  labs(y = "Thermal Deviance [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(xlim = c(-2.5, 2.5))
@@ -200,7 +200,7 @@ plot_trends_lat <- new_data_lat %>%
   scale_y_continuous(breaks = seq(-12, 4, 4)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(xlim = c(-2.5, 2.5)) +
-  labs(y = "Climatic Mismatch [°C]", 
+  labs(y = "Thermal Deviance [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   theme(legend.position = c(0.1, 0.85)) +
   theme(axis.ticks = element_blank())
