@@ -48,7 +48,7 @@ dat_train_temp <- dat_spp %>%
   pull(temp_surface) 
 
 # fit the weighted average partial least squares model (WAPLS)
-mod_wapls <- WAPLS(dat_train_spec, dat_train_temp, npls = 7)
+mod_wapls <- WAPLS(dat_train_spec, dat_train_temp, npls = 10)
 
 # cross-validate model
 mod_cv <- crossval(mod_wapls, cv.method = "loo")
@@ -61,7 +61,7 @@ nr_comp <- performance(mod_cv)$crossval[, 1] %>%
 # root mean squared error
 plot_rmse <- tibble(model_rmse = performance(mod_cv)$object[, 1],
                     crossval_rmse = performance(mod_cv)$crossval[, 1],
-                    nr_components = 1:7) %>% 
+                    nr_components = 1:10) %>% 
   pivot_longer(cols = contains("rmse")) %>% 
  ggplot(aes(nr_components, value, colour = name)) +
   geom_line() +
@@ -71,23 +71,26 @@ plot_rmse <- tibble(model_rmse = performance(mod_cv)$object[, 1],
   scale_color_manual(name = NULL, 
                      values = c(colour_coral, "grey20"), 
                      labels = c("Cross-validated", "Model")) +
+  scale_x_continuous(breaks = 1:10) +
   theme(legend.position = c(0.8, 0.8))
 
 # r-squared
 plot_rsq <- tibble(model_rsq = performance(mod_cv)$object[, 2],
                    crossval_rsq = performance(mod_cv)$crossval[, 2],
-                   nr_components = 1:7) %>% 
+                   nr_components = 1:10) %>% 
   pivot_longer(cols = contains("rsq")) %>% 
   ggplot(aes(nr_components, value, fill = name)) +
-  geom_hline(yintercept = 0.9055783, linetype = "dotted", 
+  geom_hline(yintercept = performance(mod_cv)$crossval[7, 2], 
+             linetype = "dotted", 
              colour = "grey70") +
   geom_col(position = "dodge") +
-  coord_cartesian(ylim = c(0.88, 0.92)) +
+  coord_cartesian(ylim = c(0.86, 0.91)) +
   labs(x = "Number of Components", 
        y = "R-squared") +
   scale_fill_manual(name = NULL, 
                      values = alpha(c(colour_coral, "grey20"), 0.7), 
                      labels = c("Cross-validated", "Model")) +
+  scale_x_continuous(breaks = 1:10) +
   theme(legend.position = "none")
 
 # combine 
@@ -138,73 +141,36 @@ dat_debt <- dat_spp %>%
 
   
 # save data
-write_rds(dat_debt, 
-          here("data", 
+dat_debt %>% 
+  write_rds(here("data", 
                "cleaned_debt_wapls.rds"))
 
 
 
 
-# extract species optima based on wapls -----------------------------------
+# extract species niches  -----------------------------------
 
 
-# prepare data
-dat_spec_niche <- dat_spp %>% 
-  distinct(species) %>% 
-  add_column(dummy = 0, 
-             nr_species = 1:length(.$species)) %>% 
-  pivot_wider(names_from = species, values_from = dummy, 
-              id_cols = nr_species) %>% 
-  select(-nr_species) %>% 
-  replace(is.na(.), 10) %>% 
-  as.matrix()
-
-diag(dat_spec_niche) <- 100
-
-# predict
-dat_pred_niche <- dat_spec_niche %>% 
-  predict(mod_wapls, newdata = ., npls = nr_comp,
-          nboot = 1000, sse = TRUE) %>% 
-  keep(names(.) == 'fit.boot' | names(.) == 'v1.boot') %>% 
-  map(~ .x %>% 
-        as_tibble %>% 
-        select("Comp03")) %>% 
-  bind_cols() %>% 
-  rename(temp_pred = "Comp03...1", 
-         temp_sd = "Comp03...2") %>% 
-  add_column(species = unique(dat_spp$species))
-
-# save data
-write_rds(dat_pred_niche, 
-          here("data", 
-               "niche_temperatures.rds"))
-
-# visualise
-plot_niche <- dat_pred_niche %>%
-  mutate(dens_val = map2(.x = temp_pred, 
-                         .y = temp_sd, 
-                         .f = ~ rnorm(10000, mean = .x, sd = .y))) %>% 
-  select(-c(temp_pred, temp_sd)) %>% 
-  unnest(c(dens_val)) %>% 
+plot_niche <- dat_spp %>% 
   group_by(species) %>% 
-  mutate(mean_temp = median(dens_val)) %>% 
+  mutate(mean_temp = mean(temp_surface)) %>% 
   ungroup() %>% 
-  ggplot(aes(dens_val, group = species)) +
+  ggplot(aes(temp_surface, group = species)) +
   geom_density(aes(fill = mean_temp), 
                alpha = 0.4, 
                colour = "grey60", 
                linewidth = 0.1) +
   geom_hline(yintercept = 0, colour = "white", linewidth = 1) +
-  annotate(geom = "point",
-           x = c(9, 13, 17), y = -0.012,
-           shape = 21,
-           size = 5, 
-           colour = "grey30") +
-  annotate(geom = "text", 
-           x = c(9, 13, 17), y = -0.011, 
-           label = c("1", "2", "3"),
-           size = 10/.pt, 
-           colour = "grey30") +
+  # annotate(geom = "point",
+  #          x = c(9, 13, 17), y = -0.012,
+  #          shape = 21,
+  #          size = 5, 
+  #          colour = "grey30") +
+  # annotate(geom = "text", 
+  #          x = c(9, 13, 17), y = -0.011, 
+  #          label = c("1", "2", "3"),
+  #          size = 10/.pt, 
+  #          colour = "grey30") +
   theme(legend.position = "none") +
   labs(x = "Temperature [°C]", 
        y = NULL) +
@@ -213,8 +179,7 @@ plot_niche <- dat_pred_niche %>%
                        mid = "#8f7270ff",
                        high = colour_lavender, 
                        midpoint = 24,
-                       n.breaks = 10)
-
+                       n.breaks = 10) 
 
 # save plot
 ggsave(plot_niche, filename = here("figures", 

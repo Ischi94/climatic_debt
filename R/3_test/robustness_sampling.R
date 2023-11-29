@@ -1,7 +1,8 @@
 library(here)
 library(merTools)
-library(tidyverse)
 library(lme4)
+library(tidyverse)
+
 
 
 # source plotting configurations ------------------------------------------

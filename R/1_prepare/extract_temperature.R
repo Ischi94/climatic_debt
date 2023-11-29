@@ -107,7 +107,8 @@ dat_temp <- list.files(here("data", "gcm_annual_mean"), # get all downloaded tif
 
 # combine with species data
 dat_final <- dat_temp %>% 
-  full_join(dat_spp_depth, by = c("bin", "core_uniq")) %>% 
+  distinct() %>% 
+  right_join(dat_spp_depth, by = c("bin", "core_uniq")) %>%
   # remove where temperature is unknown
   drop_na(temp_surface, temp_depth) %>% 
   select(-c(DepthHabitat:ald,N:ref)) %>% 
@@ -117,12 +118,8 @@ dat_final <- dat_temp %>%
   group_by(core_uniq) %>% 
   mutate(n_occ = n()) %>% 
   ungroup() %>% 
-  filter(n_occ >= 4) %>% 
-  # retain only those species that occur at least 10 times
-  group_by(species) %>% 
-  mutate(n_occ = n()) %>% 
-  ungroup() %>% 
-  filter(n_occ >= 10)
+  filter(n_occ >= 4) 
+
 
 
 # save as rds
