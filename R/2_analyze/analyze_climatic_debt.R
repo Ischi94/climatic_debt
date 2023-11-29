@@ -141,7 +141,7 @@ plot_trends_total <- dat_trends %>%
   annotate(geom = "text", 
            x = 1.9, y = 2.25, 
            label = "No response", 
-           angle = 30, 
+           angle = 28, 
            colour = "grey20",
            size = 10/.pt) +
   annotate(geom = "text", 
@@ -161,12 +161,12 @@ plot_trends_total <- dat_trends %>%
            label = "GAM",
            colour = colour_grey,
            size = 10/.pt) +
-  labs(y = "Climatic Mismatch [°C]", 
+  labs(y = "Thermal Deviance [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   scale_y_continuous(breaks = seq(-2, 2, 2)) +
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-3, 3), 
-                  xlim = c(-2.2, 2.2)) +
+                  xlim = c(-2.2, 2.3)) +
   theme(axis.ticks = element_blank())
 
 
@@ -200,7 +200,7 @@ plot_trends_lat <- new_data_lat %>%
   scale_x_continuous(breaks = seq(-2, 2, 2)) +
   coord_cartesian(ylim = c(-3, 3), 
                   xlim = c(-2.5, 2.5)) +
-  labs(y = "Climatic Mismatch [°C]", 
+  labs(y = "Thermal Deviance [°C]", 
        x = expression(paste(Delta, "  Temperature [°C]"))) +
   theme(legend.position = "none") +
   theme(axis.ticks = element_blank())
