@@ -119,7 +119,17 @@ dat_model <- dat_final %>%
                          ~ pluck(.x, "fit")), 
          pred_se = map(pred_turnover, 
                        ~ pluck(.x, "se.fit")))  
-  
+
+# create table
+dat_model %>% 
+  mutate(beta_coef = map_dbl(mod_gam, 
+                             ~ coef(.x) %>% pluck(2)), 
+         ci = map(mod_gam, confint),
+         ci_low = map_dbl(ci, pluck, 2),  
+         ci_high = map_dbl(ci, pluck, 4)) %>% 
+  select(zone, temp, beta_coef, ci_low, ci_high) %>% 
+  write_csv(here("data",
+                 "turnover_per_latitude.csv"))
 
 # visualise
 plot_turnover <- dat_model %>%
@@ -226,16 +236,25 @@ dat_ext_model <- dat_ext %>%
          risk_prob = map2(mod_risk, 
                           data, 
                           ~ predict(.x, .y, 
-                                    type = "response"))) %>% 
+                                    type = "response"))) 
+# create table
+dat_ext_model %>% 
+  mutate(beta_coef = map_dbl(mod_risk, 
+                             ~ coef(.x) %>% pluck(2)), 
+         ci = map(mod_risk, confint),
+         ci_low = map_dbl(ci, pluck, 2),  
+         ci_high = map_dbl(ci, pluck, 4)) %>% 
+  select(zone, temp, beta_coef, ci_low, ci_high) %>% 
+  write_csv(here("data",
+                 "extirpation_per_latitude.csv"))
+# visualise
+plot_ext <- dat_ext_model %>% 
   unnest(risk_prob) %>% 
   arrange(zone) %>% 
   mutate(risk_prob = risk_prob * 100) %>% 
   mutate(zone = factor(zone, levels = c("High", 
                                         "Mid", 
-                                        "Low")))
-  
-# visualise
-plot_ext <- dat_ext_model %>%
+                                        "Low"))) %>% 
   ggplot(aes(temp, risk_prob)) +
   geom_boxplot(aes(colour = zone), 
                outlier.alpha = 0.04, 
@@ -317,6 +336,16 @@ dat_model_div <- dat_diversity %>%
          pred_se = map(pred_div, 
                        ~ pluck(.x, "se.fit")))  
 
+# create table
+dat_model_div %>% 
+  mutate(beta_coef = map_dbl(mod_gam, 
+                             ~ coef(.x) %>% pluck(2)), 
+         ci = map(mod_gam, confint),
+         ci_low = map_dbl(ci, pluck, 2),  
+         ci_high = map_dbl(ci, pluck, 4)) %>% 
+  select(zone, temp, beta_coef, ci_low, ci_high) %>% 
+  write_csv(here("data",
+                 "richness_per_latitude.csv"))
 
 # visualise
 plot_richness <- dat_model_div %>%

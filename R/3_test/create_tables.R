@@ -25,17 +25,6 @@ dat_debt <- read_rds(here("data",
            between(abs_lat, 0, 30) ~ "Low"), 
          zone = factor(zone, levels = c("High", "Mid", "Low")))
 
-# depth test
-dat_depth <- read_csv(here("data", 
-                           "beta_coefficient_per_latitude_by_debth.csv")) %>% 
-  mutate((across(beta_coef:ci_high, round, 2)), 
-         beta_coef_depth = paste0(beta_coef, " [", ci_low, ", ", ci_high, "]")) %>% 
-  select(zone, short_term, beta_coef_depth) %>% 
-  full_join(read_csv(here("data", 
-                          "beta_coefficient_per_latitude.csv")) %>% 
-              mutate((across(beta_coef:ci_high, round, 2)),
-                     beta_coef = paste0(beta_coef, " [", ci_low, ", ", ci_high, "]")) %>% 
-              select(zone, short_term, beta_coef))
   
 dat_niche <- dat_spp %>% 
   group_by(species) %>% 
@@ -86,24 +75,6 @@ dat_spp_tbl <- dat_spp %>%
   compose(j = 2, part = "header", 
           value = as_paragraph("Total"))
 
-
-# summary of trend estimates based on surface versus depth temperature
-dat_depth_tbl <- dat_depth %>% 
-  mutate(zone = factor(zone, levels = c("High", "Mid", "Low"))) %>% 
-  arrange(zone) %>% 
-  select(zone, short_term, beta_coef, beta_coef_depth) %>% 
-  flextable() %>% 
-  theme_vanilla() %>% 
-  # set column names
-  compose(j = 1, part = "header", 
-          value = as_paragraph("Latitudinal Zone")) %>%
-  compose(j = 2, part = "header", 
-          value = as_paragraph("Temperature Change")) %>% 
-  compose(j = 3, part = "header", 
-          value = as_paragraph("Surface")) %>% 
-  compose(j = 4, part = "header", 
-          value = as_paragraph("Preferred Depth")) %>% 
-  merge_v(j = c("zone"))
 
 
 # summary of species temperature niches

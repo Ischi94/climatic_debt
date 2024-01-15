@@ -119,6 +119,17 @@ dat_model <- dat_final %>%
          pred_se = map(pred_turnover, 
                        ~ pluck(.x, "se.fit")))  
 
+# create table
+dat_model %>% 
+  mutate(beta_coef = map_dbl(mod_gam, 
+                             ~ coef(.x) %>% pluck(2)), 
+         ci = map(mod_gam, confint),
+         ci_low = map_dbl(ci, pluck, 2),  
+         ci_high = map_dbl(ci, pluck, 4)) %>% 
+  select(zone, temp, beta_coef, ci_low, ci_high) %>% 
+  write_csv(here("data",
+                 "turnover_per_latitude_braycurtis.csv"))
+
 
 # visualise
 plot_turnover <- dat_model %>%
