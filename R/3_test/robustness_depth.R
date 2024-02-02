@@ -78,7 +78,7 @@ dat_pred <- dat_spp_full %>%
 # add estimated temperature from aogcm's
 dat_debt <- dat_spp %>% 
   distinct(core_uniq, bin, 
-           temp_depth, 
+           temp_depth, DepthHabitat, 
            pal.lat, pal.long) %>% 
   left_join(dat_pred) %>% 
   # calculate offset between cti
@@ -185,3 +185,123 @@ ggsave(plot_trends_lat, filename = here("figures",
 
 
 
+# individual models per depth ---------------------------------------------
+
+# get trends
+dat_mod_ind <- dat_trends %>% 
+  group_by(short_term, zone, 
+           DepthHabitat) %>%
+  nest() %>% 
+  mutate(lm_mod = map(.x = data,
+                      .f = function(df) {
+                        lm(climatic_debt ~ temp_change,
+                           data = df)
+                      })
+  )
+
+new_data_lat_ind <- dat_mod_ind %>%
+  mutate(new_data = if_else(short_term == "warming", 
+                            list(tibble(temp_change = seq(0, 3, by = 0.1), 
+                                        bin = 0)), 
+                            list(tibble(temp_change = seq(-3, 0, by = 0.1), 
+                                        bin = 0))), 
+         predicted_debt = map2(.x = lm_mod,
+                               .y = new_data, 
+                               .f = ~ predict(.x,
+                                              newdata = .y,
+                                              interval = "confidence") %>% 
+                                 as_tibble)) %>% 
+  select(-c(data, lm_mod)) %>% 
+  unnest(cols = c(predicted_debt, new_data)) %>% 
+  rename(predicted_debt = fit)
+
+# visualise
+new_data_lat_ind %>%
+  ggplot(aes(temp_change, predicted_debt)) +
+  geom_point(aes(temp_change, climatic_debt, 
+                 colour = zone), 
+             data = dat_trends, 
+             alpha = 0.1, 
+             size = 0.6) +
+  geom_vline(xintercept = 0, 
+             colour = "grey70", 
+             linetype = "dotted") +
+  geom_ribbon(aes(fill = zone, 
+                  group = interaction(short_term, zone),
+                  ymin = lwr, ymax = upr)) +
+  geom_line(aes(colour = zone, 
+                group = interaction(short_term, zone)), 
+            lwd = 1) + 
+  scale_color_manual(values = alpha(c(colour_lavender,
+                                      colour_green,
+                                      colour_brown), 0.6)) +
+  scale_fill_manual(values = alpha(c(colour_lavender,
+                                     colour_green,
+                                     colour_brown), 0.15)) +
+  scale_y_continuous(breaks = seq(-20, 15, 5)) +
+  scale_x_continuous(breaks = seq(-2, 2, 2)) +
+  coord_cartesian(ylim = c(-20, 15), 
+                  xlim = c(-2.5, 2.5)) +
+  labs(y = "Thermal Deviance [°C]", 
+       x = expression(paste(Delta, "  Temperature [°C]"))) +
+  theme(legend.position = "none") +
+  theme(axis.ticks = element_blank()) +
+  facet_wrap(~ DepthHabitat)
+
+
+# original (reported) beta coefficients
+dat_ori_beta <- read_csv(here("data",
+                              "beta_coefficient_per_latitude.csv")) %>% 
+  add_column(DepthHabitat = "Original")
+
+# add new estimates
+# summarize the beta coefficient and save in csv
+dat_beta <- dat_mod_ind %>% 
+  mutate(beta_coef = map_dbl(lm_mod,
+                           ~ coef(.x) %>% pluck(2)),
+       ci = map(lm_mod, confint),
+       ci_low = map_dbl(ci, pluck, 2),
+       ci_high = map_dbl(ci, pluck, 4)) %>%
+  select(DepthHabitat, zone, short_term, beta_coef, ci_low, ci_high) %>%
+  ungroup() %>%  
+  # add original beta coefficients
+  full_join(dat_ori_beta)
+
+
+# build coefficent plot
+plot_comparison <- dat_beta %>%
+  mutate(zone = ordered(zone, 
+                        levels = c("High", "Mid", "Low")), 
+         short_term = str_to_title(short_term), 
+         source_data = ordered(DepthHabitat, 
+                               levels = c("Original", 
+                                          "Surface",
+                                          "Surface.subsurface", 
+                                          "Subsurface"))) %>% 
+  ggplot(aes(beta_coef, short_term,
+             colour = source_data)) +
+  geom_vline(xintercept = 0) +
+  geom_linerange(aes(xmin = ci_low, xmax = ci_high), 
+                 position = position_dodge(width = 0.5), 
+                 alpha = 0.6) +
+  geom_point(position = position_dodge(width = 0.5), 
+             size = 2) +
+  facet_wrap(~ zone, 
+             ncol = 1) +
+  scale_x_continuous(breaks = c(-2, 0, 2, 4, 6)) +
+  scale_color_brewer(name = NULL,
+                     type = "qual", 
+                     palette = 6) +
+  labs(y = NULL, 
+       x = "Beta Coefficient") +
+  theme(legend.position = "bottom", 
+        panel.border = element_rect(fill = NA,
+                                    colour = "grey60"), 
+        panel.grid.major.x = element_line(colour = "grey60", 
+                                          linetype = "dotted"))
+# save plot
+ggsave(plot_comparison, filename = here("figures", 
+                                        "supplemental",
+                                        "depth_test.png"), 
+       width = image_width, height = image_height*1.5, units = image_units, 
+       bg = "white", device = ragg::agg_png)
