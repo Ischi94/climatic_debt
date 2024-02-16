@@ -146,7 +146,7 @@ plot_trends_total <- dat_trends %>%
            size = 10/.pt) +
   annotate(geom = "text", 
            x = -1.4, y = 0.25, 
-           label = "Equilibrium", 
+           label = "Climate tracking", 
            colour = "grey20",
            size = 10/.pt) +
   annotate(geom = "curve",

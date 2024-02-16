@@ -305,3 +305,54 @@ ggsave(plot_comparison, filename = here("figures",
                                         "depth_test.png"), 
        width = image_width, height = image_height*1.5, units = image_units, 
        bg = "white", device = ragg::agg_png)
+
+
+# on a global scale -------------------------------------------------------
+
+dat_trends %>%
+  mutate(climatic_debt = climatic_debt/3) %>% 
+  ggplot(aes(temp_change, climatic_debt)) +
+  geom_vline(xintercept = 0, 
+             colour = "grey70", 
+             linetype = "dotted") +
+  geom_line(data = tibble(climatic_debt = seq(-3, 3,
+                                              length.out = 20),
+                          temp_change = seq(-3, 3,
+                                            length.out = 20)),
+            colour = "grey40") +
+  geom_hline(yintercept = 0, 
+             colour = "grey40") +
+  geom_smooth(aes(colour = DepthHabitat, 
+                  fill = DepthHabitat), 
+              linewidth = 0.6, 
+              alpha = 0.2) +
+  annotate(geom = "text", 
+           x = 1.9, y = 2.25, 
+           label = "No response", 
+           angle = 28, 
+           colour = "grey20",
+           size = 10/.pt) +
+  annotate(geom = "text", 
+           x = -1.4, y = 0.25, 
+           label = "Equilibrium", 
+           colour = "grey20",
+           size = 10/.pt) +
+  annotate(geom = "curve",
+           x = -0.25, xend = 0.8,
+           y = -0.9, yend = -2.6,
+           curvature = 0.3,
+           arrow = arrow(length = unit(0.05, "inch"),
+                         ends = "first"),
+           colour = colour_grey, lwd = 0.3) +
+  annotate(geom = "text",
+           x = 1.27, y = -2.6,
+           label = "GAM",
+           colour = colour_grey,
+           size = 10/.pt) +
+  labs(y = "Thermal Deviance [°C]", 
+       x = expression(paste(Delta, "  Temperature [°C]"))) +
+  scale_y_continuous(breaks = seq(-2, 2, 2)) +
+  scale_x_continuous(breaks = seq(-2, 2, 2)) +
+  coord_cartesian(ylim = c(-3, 3), 
+                  xlim = c(-2.2, 2.3)) +
+  theme(axis.ticks = element_blank())
