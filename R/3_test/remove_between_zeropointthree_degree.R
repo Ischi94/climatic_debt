@@ -16,7 +16,6 @@ source(here("R", "config_file.R"))
 dat_debt <- read_rds(here("data",
                           "cleaned_debt_wapls.rds")) 
 
-
 # world map outlines
 world <- map_data("world")
 
@@ -25,17 +24,11 @@ dat_trends <- read_rds(here("data",
                             "trend_data.rds"))
 
 
-dat_trends %>% 
-  select(core_uniq, bin, temp_surface, temp_anom, short_term, temp_change) %>% 
-  View
 # models ------------------------------------------------------------------
 
 
 # split data into latitudinal zones and then apply fixed effect models
-dat_mod <- dat_trends %>% 
-  ggplot(aes(temp_change)) +
-  geom_density() +
-  facet_wrap(~zone)
+dat_mod <- dat_debt %>% 
   # filter out temperature where temp changes
   # are not associated with a response 
   filter(between(temp_change, -0.3, 0.3)) %>%
@@ -62,8 +55,7 @@ dat_mod %>%
   bind_cols(read_csv(here("data",
                           "beta_coefficient_per_latitude.csv")) %>% 
               arrange(short_term, zone)) %>% 
-  select(contains("new")) %>% 
-  arrange(zone_new)
-
+  write(here("data", 
+             "beta_coefficient_per_latitude_above_03.csv"))
 
 
