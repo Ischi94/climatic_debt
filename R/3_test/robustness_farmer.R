@@ -1,8 +1,22 @@
 library(here)
 library(tidyverse)
+library(patchwork)
+library(rioja)
+
+
+
+# source plotting configurations ------------------------------------------
+
+source(here("R", "config_file.R"))
+
+
 
 
 # load data ---------------------------------------------------------------
+
+# North Atlantic temperature data from Farmer et al 2008 for past 12ka
+dat_temp <- read_table(here("data",   
+                            "farmer_2008_MD99_2251.txt"))
 
 # raw fossil occurrence compilation 
 dat_raw <- read_rds(here("data",
@@ -16,7 +30,8 @@ dat_ranges <- read_csv(here("data",
 dat_depth <- read_rds(here("data",
                            "cleaned_depth_data.rds"))
 
-
+# wapls model
+mod_wapls <-read_rds(here("data", "wapls_model.rds"))
 
 # preliminary data cleaning -----------------------------------------------
 
@@ -142,7 +157,7 @@ bins <- data.frame(t = brk, b = brk + 1, mid = brk + 1/2)
 # age 'zero' = 1950, and some observations are more recent (i.e. negative age)
 bins$t[1] <- -0.1
 
-dat_clean_binned <- testi %>%
+dat_clean_binned <- dat_clean_pres_nrew %>%
   mutate(bin = map(age, ~ bins$t < .x & bins$b >= .x),
          bin = map_dbl(bin, ~ bins$mid[.x])) %>% 
   # calculate the relative abundance of each species within each core per bin
@@ -152,12 +167,75 @@ dat_clean_binned <- testi %>%
   mutate(rel_abund = av_rel_ab/sum(av_rel_ab)) %>% 
   ungroup() %>% 
   select(-av_rel_ab) %>% 
-  left_join(dat_clean_binned %>% 
+  left_join(dat_clean_pres_nrew %>% 
               distinct(core_uniq, pal.lat, pal.long)) %>% 
   # filter to high latitude
   filter(pal.lat >= 60) 
 
-# save final data set
-dat_clean_binned %>% 
-  write_rds(here("data", 
-                 "cleaned_spp_data_subset.rds"))
+
+# bin temperature ---------------------------------------------------------
+
+
+# bin temp data
+dat_temp_bin <- dat_temp %>% 
+  mutate(bin = map(age, ~ bins$t < .x & bins$b >= .x),
+         bin = map_dbl(bin, ~ bins$mid[.x])) %>% 
+  group_by(bin) %>% 
+  summarise(mean_temp = mean(sst)) %>% 
+  # calculate  change
+  mutate(temp_change = mean_temp - lead(mean_temp)) 
+
+
+# predict community temperature index -------------------------------------
+
+
+# predict temperature on whole dataset using WAPLS
+# bring data in right format
+dat_spp_full <- dat_clean_binned %>% 
+  pivot_wider(id_cols = c(core_uniq, bin), 
+              names_from = species, 
+              values_from = rel_abund, 
+              values_fn = mean, 
+              values_fill = 0) 
+
+# predict community temperature index (cti)
+dat_pred <- dat_spp_full %>% 
+  select(-c(core_uniq, bin)) %>% 
+  as.data.frame() %>% 
+  predict(mod_wapls, newdata = ., npls = 4,
+          nboot = 1000) %>% 
+  pluck("fit") %>% 
+  .[, 4] %>% 
+  as_tibble() %>% 
+  bind_cols(dat_spp_full) %>% 
+  select(core_uniq, bin, cti = value)
+
+# add estimated temperature from aogcm's
+dat_trends <- dat_temp_bin %>% 
+  left_join(dat_pred) %>% 
+  # calculate offset between cti
+  mutate(climatic_debt = mean_temp - cti, 
+         short_term = if_else(temp_change >= 0, "warm", "cool")) 
+
+# latitudinal wise
+# split data into latitudinal zones and then apply fixed effect models
+dat_mod <- dat_trends %>% 
+  group_by(short_term) %>%
+  nest() %>% 
+  mutate(lm_mod = map(.x = data,
+                      .f = function(df) {
+                        lm(climatic_debt ~ temp_change,
+                           data = df)
+                      })
+  )
+
+# summarize the beta coefficient and save in csv
+dat_mod %>%
+  mutate(beta_coef = map_dbl(lm_mod, 
+                             ~ coef(.x) %>% pluck(2)), 
+         ci = map(lm_mod, confint),
+         ci_low = map_dbl(ci, pluck, 2),  
+         ci_high = map_dbl(ci, pluck, 4)) %>% 
+  select(short_term, beta_coef, ci_low, ci_high) %>% 
+  write_csv(here("data",
+                 "beta_coefficient_per_latitude_high_subset.csv"))

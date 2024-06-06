@@ -50,6 +50,12 @@ dat_train_temp <- dat_spp %>%
 # fit the weighted average partial least squares model (WAPLS)
 mod_wapls <- WAPLS(dat_train_spec, dat_train_temp, npls = 10)
 
+## save data
+# write_rds(mod_wapls, 
+#           here("data", 
+#                "wapls_model.rds"))
+
+
 # cross-validate model
 mod_cv <- crossval(mod_wapls, cv.method = "loo")
 
