@@ -136,7 +136,16 @@ dat_debt <- dat_spp %>%
            pal.lat, pal.long) %>% 
   left_join(dat_pred) %>% 
   # calculate offset between cti
-  mutate(climatic_debt = temp_surface - cti) 
+  mutate(climatic_debt = temp_surface - cti) %>% 
+  # add latitudinal zones
+  mutate(abs_lat = abs(pal.lat), 
+         zone = case_when(
+           abs_lat >= 60 ~ "High",
+           between(abs_lat, 30, 60) ~ "Mid", 
+           between(abs_lat, 0, 30) ~ "Low")) %>% 
+  # convert temperature in temperature anomaly
+  mutate(temp_anom = (temp_surface - mean(temp_surface, na.rm = TRUE)) / 
+           sd(temp_surface, na.rm = TRUE))
 
 
   

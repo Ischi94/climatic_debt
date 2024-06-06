@@ -14,28 +14,12 @@ source(here("R", "config_file.R"))
 
 # debt data
 dat_debt <- read_rds(here("data",
-                          "cleaned_debt_wapls.rds")) %>% 
-  # add latitudinal zones
-  mutate(zone = case_when(
-           pal.lat >= 60 ~ "High North",
-           between(pal.lat, 30, 60) ~ "Mid North", 
-           between(pal.lat, 0, 30) ~ "Low North", 
-         pal.lat <= -60 ~ "High South",
-         between(pal.lat, -60, -30) ~ "Mid South", 
-         between(pal.lat, -30, 0) ~ "Low South")) %>% 
-  # convert temperature in temperature anomaly
-  mutate(temp_anom = (temp_surface - mean(temp_surface, na.rm = TRUE)) / 
-           sd(temp_surface, na.rm = TRUE))
+                          "cleaned_debt_wapls.rds")) 
 
 
 # prepare trend data
-dat_trends <- dat_debt %>% 
-  mutate(short_term = if_else(temp_anom > lead(temp_anom),
-                              "warming",
-                              "cooling"), 
-         temp_change = temp_anom - lead(temp_anom, 
-                                        default = mean(temp_anom))) %>% 
-  drop_na(short_term)
+dat_trends <- read_rds(here("data",
+                            "trend_data.rds"))
 
 
 # model climatic debt versus temperature ----------------------------------

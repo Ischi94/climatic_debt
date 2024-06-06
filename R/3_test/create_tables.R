@@ -16,14 +16,8 @@ dat_spp <- read_rds(here("data",
 
 # debt data
 dat_debt <- read_rds(here("data",
-                          "cleaned_debt_wapls.rds")) %>% 
-  # add latitudinal zones
-  mutate(abs_lat = abs(pal.lat), 
-         zone = case_when(
-           abs_lat >= 60 ~ "High",
-           between(abs_lat, 30, 60) ~ "Mid", 
-           between(abs_lat, 0, 30) ~ "Low"), 
-         zone = factor(zone, levels = c("High", "Mid", "Low")))
+                          "cleaned_debt_wapls.rds")) 
+
 
   
 dat_niche <- dat_spp %>% 

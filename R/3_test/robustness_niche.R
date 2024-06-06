@@ -20,16 +20,8 @@ dat_spp <- read_rds(here("data",
 
 # debt data
 dat_debt <- read_rds(here("data",
-                          "cleaned_debt_wapls.rds")) %>% 
-  # add latitudinal zones
-  mutate(abs_lat = abs(pal.lat), 
-         zone = case_when(
-           abs_lat >= 60 ~ "High",
-           between(abs_lat, 30, 60) ~ "Mid", 
-           between(abs_lat, 0, 30) ~ "Low")) %>% 
-  # convert temperature in temperature anomaly
-  mutate(temp_anom = (temp_surface - mean(temp_surface, na.rm = TRUE)) / 
-           sd(temp_surface, na.rm = TRUE))
+                          "cleaned_debt_wapls.rds")) 
+
 
 # average global temperature in each bin
 dat_mean_temp <- read_csv(here("data", 

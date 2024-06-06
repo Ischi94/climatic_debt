@@ -9,17 +9,7 @@ source(here("R", "config_file.R"))
 # load data ---------------------------------------------------------------
 
 dat_debt <- read_rds(here("data",
-                          "cleaned_debt_wapls.rds")) %>% 
-  # convert temperature in temperature anomaly
-  mutate(temp_anom = (temp_surface - mean(temp_surface, na.rm = TRUE)) / 
-           sd(temp_surface, na.rm = TRUE)) %>% 
-  # prepare trend data
-  mutate(short_term = if_else(temp_anom > lead(temp_anom),
-                              "warming",
-                              "cooling"), 
-         temp_change = temp_anom - lead(temp_anom, 
-                                        default = mean(temp_anom))) %>% 
-  drop_na(short_term)
+                          "cleaned_debt_wapls.rds")) 
 
 
 # temperature estimates from proxy data
