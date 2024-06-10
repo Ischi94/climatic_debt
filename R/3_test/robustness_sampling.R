@@ -28,6 +28,11 @@ dat_reported <- read_csv(here("data",
   add_column(type = "Fixed Effects")
 
 
+# 12 ka subset from the high latitude using proxy data
+dat_high <- read_csv(here("data", 
+                          "beta_coefficient_per_latitude_high_subset.csv")) %>% 
+  add_column(zone = "High", 
+             type = "Proxy data")
 
 
 # random effects ----------------------------------------------------------
@@ -118,7 +123,8 @@ dat_omit_young <- dat_trends %>%
 dat_comp <- dat_reported %>% 
   full_join(dat_re) %>% 
   full_join(dat_omit_old) %>%
-  full_join(dat_omit_young) 
+  full_join(dat_omit_young) %>% 
+  full_join(dat_high)
 
 
 
@@ -131,7 +137,8 @@ plot_comparison <- dat_comp %>%
                         levels = c("Fixed Effects", 
                                    "Younger than 400ka", 
                                    "Older than 4ka",
-                                   "Random Effects"))) %>% 
+                                   "Random Effects", 
+                                   "Proxy data"))) %>% 
   ggplot(aes(beta_coef, short_term,
              colour = type)) +
   geom_vline(xintercept = 0) +
@@ -153,6 +160,7 @@ plot_comparison <- dat_comp %>%
                                     colour = "grey60"), 
         panel.grid.major.x = element_line(colour = "grey60", 
                                           linetype = "dotted"))
+plot_comparison
 
 # save plot
 ggsave(plot_comparison, filename = here("figures", 
