@@ -214,7 +214,10 @@ dat_beta_coef <- dat_trends %>%
   # add original beta coefficients
   full_join(dat_ori_beta)
 
-
+# save data
+dat_beta_coef %>% 
+  write_csv(here("data", 
+                 "beta_coefficient_per_latitude_wapls.csv"))
 
 # visualise ---------------------------------------------------------------
 

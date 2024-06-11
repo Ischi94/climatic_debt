@@ -127,7 +127,10 @@ dat_comp <- dat_reported %>%
   full_join(dat_high)
 
 
-
+# save data
+dat_comp %>% 
+  write_csv(here("data", 
+                 "beta_coefficient_per_latitude_sampling.csv"))
 # plot
 plot_comparison <- dat_comp %>% 
   mutate(zone = ordered(zone, 

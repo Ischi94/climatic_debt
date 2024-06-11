@@ -263,13 +263,17 @@ dat_beta <- dat_mod_ind %>%
        ci_low = map_dbl(ci, pluck, 2),
        ci_high = map_dbl(ci, pluck, 4)) %>%
   select(DepthHabitat, zone, short_term, beta_coef, ci_low, ci_high) %>%
-  ungroup() %>%  
-  # add original beta coefficients
-  full_join(dat_ori_beta)
+  ungroup() 
 
+# save data
+dat_beta %>% 
+  write_csv(here("data", 
+                 "beta_coefficient_per_latitude_by_depth.csv"))
 
 # build coefficent plot
-plot_comparison <- dat_beta %>%
+plot_comparison <- dat_beta %>%  
+  # add original beta coefficients
+  full_join(dat_ori_beta) %>% 
   mutate(zone = ordered(zone, 
                         levels = c("High", "Mid", "Low")), 
          short_term = str_to_title(short_term), 

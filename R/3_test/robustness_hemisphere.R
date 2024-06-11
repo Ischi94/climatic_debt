@@ -27,8 +27,9 @@ dat_trends <- read_rds(here("data",
 
 # latitudinal wise
 # split data into latitudinal zones and then apply fixed effect models
-dat_mod <- dat_trends %>% 
-  group_by(short_term, zone) %>%
+dat_mod <- dat_trends %>%
+  mutate(hemisph = if_else(pal.lat>= 0, "North", "South")) %>% 
+  group_by(short_term, zone, hemisph) %>%
   nest() %>% 
   mutate(lm_mod = map(.x = data,
                       .f = function(df) {
@@ -44,22 +45,16 @@ dat_beta <- dat_mod %>%
          ci = map(lm_mod, confint),
          ci_low = map_dbl(ci, pluck, 2),  
          ci_high = map_dbl(ci, pluck, 4)) %>% 
-  select(zone, short_term, beta_coef, ci_low, ci_high) %>%
+  select(zone, short_term,hemisph, beta_coef, ci_low, ci_high) %>%
   arrange(zone) %>% 
-  separate_wider_delim(zone, 
-                       delim = " ", 
-                       names = c("zone", "type")) %>% 
   ungroup() %>% 
-  # add original 
-  full_join( read_csv(here("data",
-                           "beta_coefficient_per_latitude.csv")) %>% 
-               add_column(type = "Original") %>% 
-               ungroup()) %>% 
+  rename(type = hemisph) %>% 
   drop_na()
  
-
-
-
+# save data
+dat_beta %>% 
+  write_csv(here("data", 
+                 "beta_coefficient_per_latitude_hemisph.csv"))
 
 # visualize ---------------------------------------------------------------
 
@@ -67,6 +62,11 @@ dat_beta <- dat_mod %>%
 
 # build coefficent plot
 plot_comparison <- dat_beta %>%
+  # add original 
+  full_join( read_csv(here("data",
+                           "beta_coefficient_per_latitude.csv")) %>% 
+               add_column(type = "Original") %>% 
+               ungroup()) %>% 
   mutate(zone = ordered(zone, 
                         levels = c("High", "Mid", "Low")), 
          short_term = str_to_title(short_term), 
